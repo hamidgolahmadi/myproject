@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+
+# Logs / SLURM outputs
+logs/
+*.out
+*.err
+
+# Simulation outputs
+baseline_no_policy_1000seeds_v1/
+baseline_no_policy_1000seeds_v2/
+baseline_results_v2/
+adaptive_credibility_grid_v1/
+adaptive_grid_smoketest_v1/
+interaction_merged/
+interaction_merged_coarse/
+interaction_results/
+interaction_results_coarse/
+interaction_summary/
+interaction_summary_coarse/
+oat_merged/
+oat_results/
+oat_results_alpha_backup/
+oat_results_beta_backup/
+oat_summary/
+oat_network_importance/
+oat_topology_comparison/
+
+# Generated topology data
+topologies/
+topologies_extreme/
+
+# Generated plots
+beta_plots/
+interaction_plots/
+oat_plots/
+paper_figures/
+
+# Temporary
+*.swp
+*.tmp
+*~
+.DS_Store
