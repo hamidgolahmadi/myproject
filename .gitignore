@@ -30,7 +30,7 @@ oat_network_importance/
 oat_topology_comparison/
 
 # Generated topology data
-topologies/
+/topologies/
 topologies_extreme/
 
 # Generated plots
@@ -49,3 +49,7 @@ paper_figures/
 results/**
 !results/**/
 !results/**/.gitkeep
+
+# Generated topology cache
+data/topology_cache/**
+!data/topology_cache/.gitkeep
