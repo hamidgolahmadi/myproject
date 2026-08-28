@@ -1,3 +1,5 @@
+
+
 # Python
 __pycache__/
 *.pyc
@@ -42,3 +44,8 @@ paper_figures/
 *.tmp
 *~
 .DS_Store
+
+# Generated results
+results/**
+!results/**/
+!results/**/.gitkeep
