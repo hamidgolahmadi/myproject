@@ -605,11 +605,6 @@ class FixedNetworkMarketEnv:
             "flow_std_cs": float(
                 np.std(delta_x)
             ),
-            "mean_abs_deltax": float(
-                np.mean(
-                    np.abs(delta_x)
-                )
-            ),
 
             # Belief dynamics
             "belief_var": float(
@@ -627,6 +622,11 @@ class FixedNetworkMarketEnv:
             "mean_abs_signal": float(
                 np.mean(
                     np.abs(signal)
+                )
+            ),
+            "mean_abs_deltax": float(
+                np.mean(
+                    np.abs(delta_x)
                 )
             ),
 
