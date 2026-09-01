@@ -4,6 +4,11 @@ The modules in this package implement the report specification separately
 from the legacy/pilot environments.
 """
 
+from .attention import (
+    local_reputation_statistics,
+    standardised_reputation_scores,
+    update_attention,
+)
 from .beliefs import belief_noise_covariance, update_beliefs
 from .fundamentals import (
     fundamental_value,
@@ -45,13 +50,16 @@ __all__ = [
     "fundamental_value",
     "initialise_state",
     "inventory_feasible_bounds",
+    "local_reputation_statistics",
     "market_return",
     "net_order_flow",
     "perceived_values",
     "price_change",
     "private_signals",
     "realised_profits",
+    "standardised_reputation_scores",
     "stationary_fundamental_variance",
+    "update_attention",
     "update_beliefs",
     "update_fundamental",
     "update_positions",
