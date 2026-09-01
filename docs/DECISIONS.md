@@ -791,3 +791,51 @@ At the end of each substantial coding session:
 A new conversation should be able to continue the project by reading these
 three files without relying on conversational memory.
 
+---
+
+## D041 — First Structural-Validation Calibration
+
+STATUS: FROZEN FOR FIRST STRUCTURAL VALIDATION RUN
+
+Before running refined market-outcome Monte Carlo comparisons, validate the
+three benchmark graph ensembles structurally using one explicit matched
+configuration:
+
+    N = 100
+    K = 6
+    n_graph_replications = 1000
+    q = 5
+    p_sw = 0.02
+    a0 = 1.0
+    experiment_seed = 20260901
+
+Provenance and interpretation:
+
+- `N = 100`, `K = 6`, and 1000 graph realisations per topology match the
+  first-stage baseline scale reported in the doctoral report.
+- `q = 5` means the structural hub-share diagnostic tracks the top five nodes,
+  i.e. five percent of the N=100 population. This matches the report's worked
+  hub-share example and the legacy structural diagnostic `top5_share`.
+- The report requires a small positive Small-World rewiring probability but
+  does not uniquely calibrate it numerically. `p_sw = 0.02` is retained from
+  the legacy extreme structural-validation pipeline because its purpose was
+  explicitly to preserve strong clustering while adding a small number of
+  shortcuts. It is a calibration choice, not a report equation.
+- The report requires `a0 > 0` but does not uniquely calibrate it numerically.
+  `a0 = 1.0` is consistent with the report's numerical illustration and with
+  the legacy linear preferential-attractiveness baseline, which starts every
+  node at unit attractiveness. It is a calibration choice, not a theorem.
+- `experiment_seed = 20260901` is only a reproducibility namespace seed. It
+  has no economic interpretation.
+
+Structural acceptance remains empirical at the ensemble level. In particular,
+we require the realised hub-dominated ensemble to show materially greater
+in-degree inequality and top-five hub share than the matched Random ensemble,
+and the realised Small-World ensemble to show materially greater clustering
+than the matched Random ensemble while retaining short paths. The report does
+not supply universal numerical cutoffs, so do not invent a hard pass/fail
+threshold before inspecting the full distributions.
+
+If this calibration fails to generate the intended architectural treatments,
+do not proceed to market-outcome interpretation. Recalibration must be
+explicitly documented as a new design decision rather than silently tuned.
