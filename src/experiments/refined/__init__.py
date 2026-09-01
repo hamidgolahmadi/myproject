@@ -4,6 +4,10 @@ This package is separate from legacy experiment runners and implements the
 report-defined refined paired, structural-validation, and evaluation workflows.
 """
 
+from .action_covariance import (
+    RollingActionCovariancePoint,
+    rolling_action_covariance,
+)
 from .calibration import (
     StructuralValidationCalibration,
     first_structural_validation_calibration,
@@ -45,6 +49,7 @@ __all__ = [
     "PairedReplicationPlan",
     "PreparedTopologyTreatment",
     "ReplicationSeeds",
+    "RollingActionCovariancePoint",
     "RunLevelMarketOutcomes",
     "StructuralEnsembleRecord",
     "StructuralEnsembleResult",
@@ -62,6 +67,7 @@ __all__ = [
     "prepare_paired_treatments",
     "return_volatility",
     "rms_mispricing",
+    "rolling_action_covariance",
     "run_structural_ensemble",
     "time_averaged_belief_variance",
     "write_structural_result",
