@@ -1,4 +1,4 @@
-"""Tests for graph-supported reputation-sensitive attention, Equations (57)-(60)."""
+"""Tests for graph-supported attention, Equations (41) and (57)-(60)."""
 
 import numpy as np
 import pytest
@@ -6,6 +6,7 @@ import pytest
 from src.model.refined import (
     local_reputation_statistics,
     standardised_reputation_scores,
+    uniform_attention_from_graph,
     update_attention,
     validate_attention,
 )
@@ -19,6 +20,38 @@ def example_graph():
             [1, 1, 0],
         ]
     )
+
+
+def test_uniform_attention_from_graph_matches_neutral_rule():
+    attention = uniform_attention_from_graph(example_graph())
+    expected = np.array(
+        [
+            [0.0, 0.5, 0.5],
+            [1.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+        ]
+    )
+    np.testing.assert_allclose(attention, expected)
+
+
+def test_uniform_attention_from_graph_reduces_to_one_over_k_for_fixed_out_degree():
+    graph = np.array(
+        [
+            [0, 1, 1, 0],
+            [1, 0, 0, 1],
+            [0, 1, 0, 1],
+            [1, 0, 1, 0],
+        ]
+    )
+    attention = uniform_attention_from_graph(graph)
+    np.testing.assert_allclose(attention[graph == 1], 0.5)
+    np.testing.assert_array_equal(attention[graph == 0], np.zeros(np.sum(graph == 0)))
+
+
+def test_uniform_attention_from_graph_rejects_row_without_feasible_source():
+    invalid = np.array([[0, 0], [1, 0]])
+    with pytest.raises(ValueError, match="at least one feasible"):
+        uniform_attention_from_graph(invalid)
 
 
 def test_local_reputation_statistics_match_equations_57_and_58():
@@ -58,13 +91,7 @@ def test_beta_zero_reduces_to_uniform_graph_supported_attention():
         beta=0.0,
         sigma_0=0.1,
     )
-    expected = np.array(
-        [
-            [0.0, 0.5, 0.5],
-            [1.0, 0.0, 0.0],
-            [0.5, 0.5, 0.0],
-        ]
-    )
+    expected = uniform_attention_from_graph(example_graph())
     assert np.allclose(attention, expected)
 
 
@@ -93,16 +120,7 @@ def test_equal_local_reputations_remain_uniform_for_positive_beta():
     )
 
     assert np.allclose(scores, np.zeros((3, 3)))
-    assert np.allclose(
-        attention,
-        np.array(
-            [
-                [0.0, 0.5, 0.5],
-                [1.0, 0.0, 0.0],
-                [0.5, 0.5, 0.0],
-            ]
-        ),
-    )
+    assert np.allclose(attention, uniform_attention_from_graph(graph))
 
 
 def test_attention_is_row_stochastic_and_exactly_zero_off_graph_support():
