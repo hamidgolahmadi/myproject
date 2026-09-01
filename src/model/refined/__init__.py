@@ -7,6 +7,7 @@ from the legacy/pilot environments.
 from .attention import (
     local_reputation_statistics,
     standardised_reputation_scores,
+    uniform_attention_from_graph,
     update_attention,
 )
 from .beliefs import belief_noise_covariance, update_beliefs
@@ -65,6 +66,7 @@ __all__ = [
     "standardised_reputation_scores",
     "stationary_fundamental_variance",
     "transition_one_period",
+    "uniform_attention_from_graph",
     "update_attention",
     "update_beliefs",
     "update_fundamental",
