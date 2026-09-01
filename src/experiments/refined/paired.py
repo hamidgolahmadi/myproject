@@ -1,7 +1,7 @@
 """Semantic seed planning for refined paired topology experiments.
 
 The report-defined confirmatory design uses common random numbers within each
-replication.  Shock, initial-state, and later type-assignment randomness are
+replication. Shock, initial-state, and later type-assignment randomness are
 therefore replication-common, while graph randomness is topology-specific.
 This module prepares those inputs without running a Monte Carlo experiment.
 """
@@ -9,22 +9,12 @@ This module prepares those inputs without running a Monte Carlo experiment.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 from typing import Iterable
-
-import numpy as np
 
 from src.model.refined.parameters import RefinedParameters
 from src.model.refined.shocks import PeriodShocks, generate_shock_path
 
-
-def _nonnegative_integer(name: str, value: int) -> int:
-    if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
-        raise TypeError(f"{name} must be an integer")
-    value = int(value)
-    if value < 0:
-        raise ValueError(f"{name} must be non-negative")
-    return value
+from .seeding import derive_graph_seed, derive_semantic_seed, nonnegative_integer
 
 
 def _topology_labels(labels: Iterable[str]) -> tuple[str, ...]:
@@ -44,33 +34,9 @@ def _topology_labels(labels: Iterable[str]) -> tuple[str, ...]:
     return values
 
 
-def _semantic_seed(
-    *,
-    experiment_seed: int,
-    replication_id: int,
-    role: str,
-    topology_label: str = "",
-) -> int:
-    """Derive one stable 64-bit seed from semantic identifiers.
-
-    A cryptographic digest is used only as a deterministic namespace mapper;
-    it is not an economic or stochastic model assumption.  Including the role
-    prevents one source of randomness from sharing a stream with another.
-    Including the topology label for graph seeds makes graph-seed assignment
-    invariant to the ordering of topology labels in configuration files.
-    """
-
-    payload = (
-        f"refined-paired-v1|{experiment_seed}|{replication_id}|"
-        f"{role}|{topology_label}"
-    ).encode("utf-8")
-    digest = hashlib.blake2b(payload, digest_size=8).digest()
-    return int.from_bytes(digest, byteorder="little", signed=False)
-
-
 @dataclass(frozen=True, slots=True)
 class ReplicationSeeds:
-    """Replication-common semantic seeds required by Decisions D025-D026."""
+    """Replication-common semantic seeds required by the paired design."""
 
     experiment_seed: int
     replication_id: int
@@ -86,7 +52,11 @@ class ReplicationSeeds:
             "initial_state_seed",
             "type_assignment_seed",
         ):
-            object.__setattr__(self, name, _nonnegative_integer(name, getattr(self, name)))
+            object.__setattr__(
+                self,
+                name,
+                nonnegative_integer(name, getattr(self, name)),
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,8 +64,8 @@ class PairedReplicationPlan:
     """Common and topology-specific random inputs for one replication.
 
     ``shock_path`` is generated once and must be reused unchanged across all
-    topology treatments.  ``topology_graph_seeds`` contains one independent
-    graph seed per named topology treatment.  The initial-state and
+    topology treatments. ``topology_graph_seeds`` contains one independent
+    graph seed per named topology treatment. The initial-state and
     type-assignment seeds are reserved explicitly even though the first
     homogeneous benchmark does not yet use type assignment.
     """
@@ -114,11 +84,15 @@ class PairedReplicationPlan:
         normalised: list[tuple[str, int]] = []
         for item in self.topology_graph_seeds:
             if not isinstance(item, tuple) or len(item) != 2:
-                raise TypeError("topology_graph_seeds entries must be (label, graph_seed) tuples")
+                raise TypeError(
+                    "topology_graph_seeds entries must be (label, graph_seed) tuples"
+                )
             label, graph_seed = item
             if not isinstance(label, str) or label == "" or label != label.strip():
-                raise ValueError("topology graph-seed labels must be non-empty strings without surrounding whitespace")
-            graph_seed = _nonnegative_integer("graph_seed", graph_seed)
+                raise ValueError(
+                    "topology graph-seed labels must be non-empty strings without surrounding whitespace"
+                )
+            graph_seed = nonnegative_integer("graph_seed", graph_seed)
             labels.append(label)
             normalised.append((label, graph_seed))
 
@@ -162,31 +136,31 @@ def prepare_paired_replication(
       ``type_assignment_seed``, and the realised ``shock_path``;
     - topology-specific: one ``graph_seed`` per topology label.
 
-    No graph is generated and no simulation is run here.  This keeps treatment
+    No graph is generated and no simulation is run here. This keeps treatment
     construction separate from common-random-number preparation.
     """
 
     if not isinstance(parameters, RefinedParameters):
         raise TypeError("parameters must be a RefinedParameters")
 
-    experiment_seed = _nonnegative_integer("experiment_seed", experiment_seed)
-    replication_id = _nonnegative_integer("replication_id", replication_id)
+    experiment_seed = nonnegative_integer("experiment_seed", experiment_seed)
+    replication_id = nonnegative_integer("replication_id", replication_id)
     labels = _topology_labels(topology_labels)
 
     seeds = ReplicationSeeds(
         experiment_seed=experiment_seed,
         replication_id=replication_id,
-        shock_seed=_semantic_seed(
+        shock_seed=derive_semantic_seed(
             experiment_seed=experiment_seed,
             replication_id=replication_id,
             role="shock",
         ),
-        initial_state_seed=_semantic_seed(
+        initial_state_seed=derive_semantic_seed(
             experiment_seed=experiment_seed,
             replication_id=replication_id,
             role="initial_state",
         ),
-        type_assignment_seed=_semantic_seed(
+        type_assignment_seed=derive_semantic_seed(
             experiment_seed=experiment_seed,
             replication_id=replication_id,
             role="type_assignment",
@@ -196,10 +170,9 @@ def prepare_paired_replication(
     topology_graph_seeds = tuple(
         (
             label,
-            _semantic_seed(
+            derive_graph_seed(
                 experiment_seed=experiment_seed,
                 replication_id=replication_id,
-                role="graph",
                 topology_label=label,
             ),
         )
