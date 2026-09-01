@@ -52,7 +52,7 @@ Core model:
         transition.py
         simulator.py
 
-Refined experiment layer:
+Refined experiment/evaluation layer:
 
     src/experiments/refined/
         __init__.py
@@ -62,6 +62,7 @@ Refined experiment layer:
         structural.py
         calibration.py
         structural_io.py
+        market_metrics.py
 
 Refined topology layer:
 
@@ -120,7 +121,7 @@ The generated R/SW/SF `alpha=0` end-to-end negative control is VERIFIED: graph a
 
 ---
 
-## 7. Verified Topology Generators
+## 7. Verified Topology Generators and Diagnostics
 
 Implemented and VERIFIED:
 
@@ -132,99 +133,61 @@ All benchmark graphs are directed, simple, zero-diagonal, exactly `K` outgoing l
 
 The hub-dominated generator uses attachment proportional to `in_degree_j + a0` and applies Equation (212) post-formation node relabelling.
 
----
-
-## 8. Verified Structural Diagnostics
-
-Implemented and VERIFIED under `src/topologies/refined/diagnostics.py`:
-
-    in_degrees(G)
-    in_degree_gini(G)
-    hub_link_share(G, q)
-    symmetrised_support(G)
-    global_clustering(G)
-    largest_component_share(G)
-    average_path_length_lcc(G)
-    diagnose_graph(G, q=q)
-    diagnose_ensemble(graphs, q=q)
-
-These follow Section 5.3.1, Equations (203)-(211). Concentration measures use directed `G`; clustering/path/component measures use diagnostic-only symmetrised support `G^u`.
+Structural diagnostics in `src/topologies/refined/diagnostics.py` implement Equations (203)-(211): in-degree Gini, top-q hub link share, diagnostic-only symmetrised clustering, largest-component path length, and largest-component share.
 
 ---
 
-## 9. Verified Structural-Only Ensemble Runner
+## 8. Structural-Only Ensemble Validation — COMPLETED
 
-Implemented and VERIFIED in `src/experiments/refined/structural.py`.
-
-It generates graph ensembles only, uses the same semantic graph-seed mapping as later paired market runs, preserves graph-level records, computes Section 5.3.1 diagnostics, and provides descriptive summaries without discarding raw observations.
-
-It does not generate shocks, market states, `W_t`, or market outcomes.
-
----
-
-## 10. First Structural-Validation Calibration — D041
-
-FROZEN FOR THE FIRST STRUCTURAL VALIDATION RUN:
+D041 calibration:
 
     experiment_seed = 20260901
     N = 100
     K = 6
-    n_graph_replications = 1000
+    n_graph_replications = 1000 per topology
     q = 5
     p_sw = 0.02
     a0 = 1.0
 
-Provenance:
-
-- `N=100`, `K=6`, and 1000 graph realisations per topology match the report's retained first-stage baseline scale.
-- `q=5` is the top-five / five-percent hub-share convention used in the report worked example and legacy structural diagnostic.
-- `p_sw=0.02` comes from the legacy extreme structural-validation pipeline; the report specifies a small positive rewiring probability but no unique numerical calibration.
-- `a0=1.0` is consistent with the report's illustration and the legacy unit-attractiveness linear preferential-attachment baseline; the report itself requires only `a0>0`.
-- The experiment seed is a reproducibility namespace only.
-
-These are explicit calibration choices, not model equations. If intended ensemble separation fails, recalibration must be documented rather than silently tuned.
-
-Canonical object:
-
-    StructuralValidationCalibration
-    first_structural_validation_calibration()
-
----
-
-## 11. Structural Output Persistence and Driver
-
-Implemented and VERIFIED on Iridis.
-
-Writer:
-
-    src/experiments/refined/structural_io.py
-    write_structural_result(...)
-
-Outputs:
-
-    structural_graph_records.csv
-    structural_summary.csv
-    structural_metadata.json
-
-The raw graph-level CSV is primary; the summary CSV is descriptive only.
-
-Driver:
-
-    scripts/run_refined_structural_validation.py
-
-With no scientific overrides it executes D041. A reduced `--n-replications` argument exists only for smoke/testing.
-
-Default output directory:
-
-    results/refined/structural_validation/
-
-Canonical real-run command:
+Canonical run:
 
     python scripts/run_refined_structural_validation.py
 
+COMPLETED on Iridis with 3000 graph records and clean working tree.
+
+Output files:
+
+    results/refined/structural_validation/structural_graph_records.csv
+    results/refined/structural_validation/structural_summary.csv
+    results/refined/structural_validation/structural_metadata.json
+
+Mean diagnostics:
+
+              Gini      top-5 share   clustering    APL-LCC    LCC share
+    R       0.21951       0.09371       0.10846      2.09894      1.00000
+    SW      0.03201       0.05932       0.54982      4.46807      1.00000
+    SF      0.51145       0.18908       0.13959      2.08013      1.00000
+
+The structural treatment separation is SUCCESSFUL and is not merely a mean effect:
+
+- SF Gini range: 0.42407 to 0.60907;
+- Random Gini range: 0.16620 to 0.26670;
+- therefore every realised SF graph in this ensemble has higher in-degree Gini than every realised Random graph.
+- SF top-five hub-share range: 0.13667 to 0.28333;
+- Random top-five hub-share range: 0.07833 to 0.11000;
+- therefore every realised SF graph also has higher top-five structural concentration than every realised Random graph.
+- SW clustering range: 0.50588 to 0.59055;
+- Random clustering range: 0.08869 to 0.13089;
+- therefore every realised SW graph has substantially higher clustering than every realised Random graph.
+- all 3000 symmetrised supports have largest-component share 1.0.
+
+Interpretation of SW path length must remain precise. Under `p_sw=0.02`, SW has materially higher clustering and remains fully connected, but its mean APL-LCC (4.47) is longer than the matched Random benchmark (2.10). Do not describe SW as having Random-like path length. Its treatment is strong local clustering plus a limited shortcut structure.
+
+No recalibration is currently required merely to exaggerate separation: the intended concentration and clustering treatments are already strongly identified structurally.
+
 ---
 
-## 12. Verified Test Checkpoints
+## 9. Verified Test Checkpoints
 
 Verified on Iridis:
 
@@ -252,7 +215,60 @@ with a clean working tree and branch up to date with `origin/refined-model`.
 
 ---
 
-## 13. Computational Milestones
+## 10. Run-Level Market Outcome Metrics — NEW
+
+NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
+
+    src/experiments/refined/market_metrics.py
+
+Implements the report evaluation sample and principal run-level outcomes from Section 5.5:
+
+    Equation (236)  return volatility RV
+    Equation (237)  RMS mispricing RMSM
+    Equation (237)  maximum absolute mispricing MAM
+    Equation (238)  mean absolute signed net order flow per agent MAF
+    Equation (288)  mean absolute return MAR
+    Equation (289)  time-averaged cross-sectional belief variance V_b
+
+Public API:
+
+    return_volatility(...)
+    rms_mispricing(...)
+    maximum_absolute_mispricing(...)
+    mean_absolute_order_flow_per_agent(...)
+    mean_absolute_return(...)
+    time_averaged_belief_variance(...)
+    compute_run_level_market_outcomes(...)
+    RunLevelMarketOutcomes
+
+Evaluation convention:
+
+    T_B = {B+1,...,T}
+
+is implemented by selecting `period_outputs[B:T]` and matching `states[B+1:T+1]`. Baseline uses `B=0`; positive burn-in remains an explicit robustness choice.
+
+The metric layer evaluates `SimulationResult` only. It does not duplicate or rerun economic dynamics.
+
+The direct tests explicitly distinguish:
+
+    p_t - v_t        from inherited-price mispricing
+    |F_t| / N        from gross trading volume sum_i |a_i,t|
+    sample return SD from population SD
+    population cross-sectional belief variance from sample variance
+
+New test file:
+
+    tests/test_refined_market_metrics.py
+
+It adds 23 pytest cases.
+
+Expected next total:
+
+    284 passed
+
+---
+
+## 11. Computational Milestones
 
 Milestones 1-10 are VERIFIED:
 
@@ -267,57 +283,58 @@ Milestones 1-10 are VERIFIED:
 9. structural-only matched ensemble runner
 10. frozen structural calibration + persistent output driver
 
-No large refined market Monte Carlo should be submitted yet.
+Structural ensemble validation itself is also COMPLETED SUCCESSFULLY.
+
+Milestone 11 — principal run-level market metrics:
+
+    IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
+
+Do not start the large refined market Monte Carlo yet. Rolling action covariance, CID, effective-influence diagnostics, and explicit market-run calibration still need implementation/verification.
 
 ---
 
-## 14. Immediate Next Step
+## 12. Immediate Next Step
 
-Run the actual D041 structural-only validation on Iridis:
+1. Pull latest `refined-model` on Iridis.
+2. Run:
 
-    python scripts/run_refined_structural_validation.py
+       python -m pytest -q tests/test_refined_*.py
 
-This generates 1000 graph realisations for each of R, SW, and SF (3000 graphs total) and writes raw records, distribution summaries, and metadata under:
+3. Expected total:
 
-    results/refined/structural_validation/
+       284 passed
 
-After completion, inspect:
+4. If all 284 pass, record Milestone 11 as VERIFIED.
+5. Then implement the next Section 5.5 evaluation blocks in small stages:
 
-    results/refined/structural_validation/structural_summary.csv
-    results/refined/structural_validation/structural_metadata.json
+       rolling action covariance and exact order-flow variance decomposition, Eqs. (239)-(240)
+       rolling CID components and normalisation, Eqs. (241)-(246)
+       threshold-exceedance / duration / censored stabilisation logic, Eqs. (247)-(250)
+       effective-influence concentration / overlap / mobility, Eqs. (251)-(265)
 
-Required qualitative validation before market interpretation:
-
-    SF concentration > matched Random concentration, materially
-    SW clustering > matched Random clustering, materially
-    SW retains relatively short paths
-    component coverage is reported alongside path length
-
-The report supplies qualitative ensemble expectations, not universal numeric cutoffs. Do not invent a hard pass/fail threshold.
-
-If structural separation is inadequate, recalibrate transparently and rerun structural validation before market simulation.
+6. Fix all CID reference scales, rolling-window lengths, thresholds, guardrails, and stabilisation length before topology-evaluation Monte Carlo. Do not reverse-engineer thresholds from desired topology rankings.
 
 ---
 
-## 15. Planned Development Sequence
+## 13. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model                         COMPLETE
     Phase 2  Refined binary topology generators                       COMPLETE
     Phase 3  Deterministic integration and multi-period tests         COMPLETE
-    Phase 4  Paired fixed-topology Monte Carlo design                 IN PROGRESS
-    Phase 5  Refined market metrics and CID
-    Phase 6  Influence / overlap / action-covariance diagnostics
-    Phase 7  alpha / beta / gamma_R experiments and heterogeneity
-    Phase 8  Endogenous feasible-network formation and rewiring
-    Phase 9  Full equilibrium Jacobian / Lyapunov analysis
-    Phase 10 State-space / synthetic recovery / EKF / empirical work
-    Phase 11 Planner / policy analysis
+    Phase 4  Paired fixed-topology design + structural validation      COMPLETE
+    Phase 5  Refined market metrics and CID                            IN PROGRESS
+    Phase 6  Influence / overlap / action-covariance diagnostics       PLANNED
+    Phase 7  alpha / beta / gamma_R experiments and heterogeneity      PLANNED
+    Phase 8  Endogenous feasible-network formation and rewiring        PLANNED
+    Phase 9  Full equilibrium Jacobian / Lyapunov analysis             PLANNED
+    Phase 10 State-space / synthetic recovery / EKF / empirical work   PLANNED
+    Phase 11 Planner / policy analysis                                 PLANNED
 
 Optional later extension: MARL
 
 ---
 
-## 16. New-Chat Handoff Prompt
+## 14. New-Chat Handoff Prompt
 
 When starting a new conversation:
 
