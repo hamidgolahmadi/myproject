@@ -17,8 +17,8 @@ Stable restructuring checkpoint:
     git tag: restructuring-complete
 
 The restructuring work is complete. New doctoral-model development belongs
-under `src/model/refined/`; legacy code remains reference/reproducibility code
-only.
+under `src/model/refined/` and `src/experiments/refined/`; legacy code remains
+reference/reproducibility code only.
 
 ---
 
@@ -35,9 +35,6 @@ experiments, diagnostics, stability analysis, and estimation roadmap.
 In particular:
 
     old-result equivalence != refined-model correctness
-
-The refined executed-trade rule and refined price equation are not
-algebraically equivalent to the earlier pilot implementation.
 
 ---
 
@@ -62,9 +59,9 @@ system PYTHONPATH that can contaminate the project virtual environment.
 
 ---
 
-## 4. Refined Package Architecture
+## 4. Refined Architecture
 
-The refined implementation is isolated under:
+Core model:
 
     src/model/refined/
     |-- __init__.py
@@ -80,46 +77,49 @@ The refined implementation is isolated under:
     |-- transition.py
     `-- simulator.py
 
+Refined experiment-design infrastructure:
+
+    src/experiments/refined/
+    |-- __init__.py
+    `-- paired.py
+
 Legacy modules such as `src/model/market_core.py`,
-`src/model/baseline_env.py`, and `src/model/adaptive_env.py` must not be
-mutated into the refined model.
+`src/model/baseline_env.py`, `src/model/adaptive_env.py`, and the existing
+legacy experiment runners must not be mutated into the refined model.
 
 ---
 
 ## 5. Frozen Scientific Decisions
 
-The following decisions remain binding:
+Binding decisions include:
 
 - `G` is the fixed/exogenous directed binary feasible-information graph in the
   first stage.
 - `W_t` is a separate row-stochastic effective-attention matrix supported by
   `G`.
-- `g_ij = 0 => w_ij,t = 0`.
-- Self-links are not silently prohibited because Equations (35)-(36) do not
-  prohibit them.
 - Current beliefs use inherited `W_{t-1}`, never contemporaneous `W_t`.
 - No within-period `(I - alpha W_t)^(-1)` solution is used in the ABM.
 - Signal, belief, perceived value, action, and position are distinct objects.
-- Desired action is `tanh(kappa m)`; executed action is the separate inventory
+- Desired action is `tanh(kappa m)`; executed action is a separate inventory
   projection.
 - `x_t = x_{t-1} + a_t`.
 - `F_t = sum_i a_i,t` is signed net order flow, not gross volume.
 - Price contains both the fundamental anchor and order-flow impact.
 - Return is `r_t = p_t - p_{t-1}` in log-price/normalised-value units.
 - Profit uses inherited positions: `pi_i,t = x_i,t-1 r_t`.
-- Reputation follows the report's exponentially weighted update.
 - First adaptive attention is frictionless reputation-sensitive softmax,
   Equation (60); attention inertia is deferred.
 - `alpha = 0` is a mandatory network-propagation negative control while common
   fundamental exposure remains present.
 - First confirmatory implementation is homogeneous.
-- Random-number generation remains outside economic transition logic; realised
-  shocks are supplied explicitly.
+- Random-number generation remains outside economic transition logic.
 - Paired confirmatory experiments reuse the same shock path and non-network
   initial conditions across topology treatments.
 - Random seeds have semantic roles; do not use one ambiguous generic `seed`.
 - Formal stability later uses the complete equilibrium Jacobian, not the
   spectral radius of `W`.
+
+See `docs/DECISIONS.md` for the full frozen decision register.
 
 ---
 
@@ -129,9 +129,8 @@ The following decisions remain binding:
 
 Implemented and tested:
 
-- `RefinedParameters` with homogeneous first-stage validation;
-- `RefinedState(theta, beliefs, positions, price, reputation, attention)`;
-- `PeriodOutputs` for within-period diagnostics;
+- `RefinedParameters`;
+- `RefinedState` and `PeriodOutputs`;
 - binary graph validation and neighbourhood construction;
 - graph-supported row-stochastic attention validation;
 - initial-state and inventory validation.
@@ -140,40 +139,36 @@ Implemented and tested:
 
 Implemented and tested:
 
-- `PeriodShocks` as an already-realised innovation bundle;
+- `PeriodShocks`;
 - AR(1) fundamental update;
 - stationary fundamental variance;
 - fundamental-value mapping;
-- private-signal construction with no hidden RNG or scaling.
+- private-signal construction.
 
 ### Beliefs: Equations (48)-(50)
 
 Implemented and tested:
 
 - homogeneous belief-noise covariance;
-- lagged private-social update
-  `b_t = (1-alpha)s_t + alpha W_{t-1}b_{t-1} + epsilon_b,t`;
+- lagged private-social update;
 - `alpha=0` network-null behaviour.
 
 ### Reputation-sensitive attention: Equations (57)-(60)
 
 Implemented and tested:
 
-- local reputation mean;
-- regularised local dispersion with `sigma_0 > 0`;
-- graph-supported standardised scores `z_ij,t`;
-- numerically stable graph-supported softmax;
+- local reputation mean and regularised dispersion;
+- graph-supported standardised scores;
+- stable graph-supported softmax;
 - exact uniform weighting at `beta=0`.
 
 ### Trading and inventory: Equations (63)-(72)
 
 Implemented and tested:
 
-- perceived values;
-- valuation gaps relative to inherited price;
+- perceived values and valuation gaps;
 - desired `tanh` actions;
-- inventory-feasible action bounds;
-- projection to executed trades;
+- inventory projection;
 - position update;
 - signed net order flow.
 
@@ -182,7 +177,6 @@ Implemented and tested:
 Implemented and tested:
 
 - fundamental-anchor + order-flow price equation;
-- price level update;
 - fixed return convention;
 - inherited-position realised profit;
 - reputation update.
@@ -191,69 +185,83 @@ Implemented and tested:
 
 Implemented and VERIFIED on Iridis in `src/model/refined/transition.py`.
 
-`transition_one_period(...)` follows exactly:
-
-    theta_t, v_t, s_t
-        -> b_t using W_{t-1}
-        -> perceived value
-        -> valuation gap
-        -> desired action
-        -> executed action
-        -> x_t
-        -> F_t
-        -> p_t
-        -> r_t
-        -> pi_t using x_{t-1}
-        -> R_t
-        -> z_t
-        -> W_t
-
-It supports adaptive end-of-period attention and
-`adaptive_attention=False` for the fixed-influence benchmark.
+`transition_one_period(...)` preserves the report timing and uses `W_{t-1}`
+for current beliefs. `W_t` enters only the returned next state.
 
 ### Deterministic multi-period simulator
 
 Implemented and VERIFIED on Iridis in `src/model/refined/simulator.py`.
 
-`simulate_shock_path(...)`:
-
-- contains no duplicate economic equations;
-- repeatedly calls `transition_one_period(...)`;
-- consumes an explicit finite sequence of `PeriodShocks`;
-- stores `T+1` persistent states and `T` within-period outputs;
-- supports adaptive and fixed-attention modes.
-
-The multi-period `alpha=0` network-null test is also VERIFIED.
+`simulate_shock_path(...)` contains no duplicate economic equations and
+repeatedly calls the canonical one-period transition.
 
 ### Shock-path generation
 
-NEWLY IMPLEMENTED in `src/model/refined/shocks.py`:
+Implemented and VERIFIED on Iridis in `src/model/refined/shocks.py`.
 
-    generate_shock_path(...)
-
-It takes explicit semantic input:
-
-    shock_seed
-
-and spawns independent child RNG streams for:
+`generate_shock_path(...)` takes a semantic `shock_seed` and uses independent
+child streams for:
 
     fundamental innovations
     private-signal innovations
     belief-processing innovations
     price innovations
 
-It generates the path once per replication for reuse unchanged across paired
-topology treatments. It does not use `graph_seed`, `initial_state_seed`, or any
-other source of randomness.
-
-The new shock-generation / CRN tests are committed but AWAIT IRIDIS
-verification.
+The generated path is explicit and reusable unchanged across topology
+treatments in a paired replication.
 
 ---
 
-## 7. Verified Test Checkpoints
+## 7. Refined Paired-Experiment Infrastructure
 
-The following refined checkpoints have been run successfully on Iridis:
+NEWLY IMPLEMENTED under:
+
+    src/experiments/refined/paired.py
+
+Objects/functions:
+
+    ReplicationSeeds
+    PairedReplicationPlan
+    prepare_paired_replication(...)
+
+The design separates replication-common randomness from topology-specific
+graph randomness.
+
+Common within a replication:
+
+    experiment_seed
+    replication_id
+    shock_seed
+    initial_state_seed
+    type_assignment_seed
+    realised shock_path
+
+Topology-specific:
+
+    graph_seed for each named topology treatment
+
+Graph seeds are derived deterministically from:
+
+    experiment_seed
+    replication_id
+    semantic role = graph
+    topology label
+
+Therefore the graph seed assigned to a named topology is invariant to the
+ordering of topology labels in a configuration file. Adding another topology
+does not perturb the seeds or common shock path already assigned to existing
+treatments.
+
+This layer DOES NOT generate graphs and DOES NOT run simulations. It only
+prepares auditable random-input plans for later paired treatments.
+
+The paired-design tests are committed but AWAIT IRIDIS verification.
+
+---
+
+## 8. Verified Test Checkpoints
+
+Refined checkpoints verified on Iridis:
 
     21 passed   state + parameters
     30 passed   + fundamentals + shocks
@@ -263,95 +271,73 @@ The following refined checkpoints have been run successfully on Iridis:
     82 passed   + adaptive attention
     90 passed   + one-period transition integration
     100 passed  + deterministic multi-period simulator + alpha=0 null test
+    115 passed  + shock-path generation + CRN tests
 
 Latest verified checkpoint:
 
-    100 passed in 1.47s
+    115 passed in 1.70s
 
-with:
+with a clean working tree and branch up to date with `origin/refined-model`.
 
-    git status
-
-clean and branch up to date with `origin/refined-model`.
+The 23 newly added paired-design test cases have not yet been run on Iridis.
 
 ---
 
-## 8. Computational Milestones
+## 9. Computational Milestones
 
 ### Milestone 1 — deterministic one-period transition
-
-Status:
 
     VERIFIED
 
 ### Milestone 2 — deterministic multi-period simulator
 
-Status:
-
     VERIFIED
 
 ### Milestone 3 — multi-period alpha=0 network-null test
 
-Status:
+    VERIFIED
+
+### Milestone 4 — explicit shock-path generation for paired CRN design
 
     VERIFIED
 
-Under common supplied shocks and identical non-network initial conditions,
-changing topology does not change beliefs, actions, order flow, prices,
-profits, or reputation when `alpha=0`. Graph-supported attention matrices may
-differ but their social channel is causally inactive.
+### Milestone 5 — semantic paired replication plan
 
-These core validation gates are now complete.
+    IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
+
+No large refined Monte Carlo experiment should be submitted until the
+remaining topology-generation and paired-treatment construction layers are
+explicit and tested.
 
 ---
 
-## 9. Immediate Next Step
+## 10. Immediate Next Step
 
 NEXT STEP:
 
 1. Pull the latest `refined-model` branch on Iridis.
-2. Run the complete refined test set including
-   `tests/test_refined_shock_generation.py`.
-3. Expected total:
+2. Run:
 
-       115 passed
+       python -m pytest -q tests/test_refined_*.py
 
-4. If all 115 pass, record the shock-generation checkpoint as verified.
-5. Then implement the next experiment-design layer without starting a large
-   Monte Carlo run:
+3. Expected total if paired seed planning is correct:
 
-       semantic replication seed plan
-       + paired common-random-number replication preparation
+       138 passed
 
-   with distinct roles for at least:
+4. If all 138 pass, record Milestone 5 as VERIFIED.
+5. Then implement refined binary topology generators under a separate refined
+   topology namespace, with `G` generated independently from `W`.
+6. Each topology generator must accept only its topology-specific `graph_seed`
+   and structural parameters; it must not consume `shock_seed` or other common
+   replication randomness.
+7. Add topology-support and reproducibility tests before constructing full
+   paired topology treatments.
 
-       replication_id
-       graph_seed
-       shock_seed
-       initial_state_seed
-       type_assignment_seed
-
-6. Keep common across topology treatments within a replication:
-
-       shock path
-       non-network initial state
-       behavioural parameters
-       market parameters
-       horizon
-       evaluation definitions
-
-7. Allow topology-specific:
-
-       graph realization
-       graph seed
-       graph-supported W_0
-
-Do not start large topology experiments yet. Refined topology-generation and
-paired-replication infrastructure should be explicit and tested first.
+Do not start a large Monte Carlo run yet.
 
 ---
 
-## 10. Planned Development Sequence
+## 11. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model, Equations (35)-(82)   COMPLETE
     Phase 2  Refined binary topology generators, G separated from W
@@ -368,7 +354,7 @@ paired-replication infrastructure should be explicit and tested first.
 
 ---
 
-## 11. Definition of a Successful Refined Implementation
+## 12. Definition of a Successful Refined Implementation
 
 A refined implementation is accepted only when:
 
@@ -390,7 +376,7 @@ Historical equivalence with pilot code is not an acceptance criterion.
 
 ---
 
-## 12. New-Chat Handoff Prompt
+## 13. New-Chat Handoff Prompt
 
 When starting a new conversation, use:
 
