@@ -4,6 +4,10 @@ This package is separate from legacy experiment runners and implements the
 report-defined refined paired and structural-validation workflows.
 """
 
+from .calibration import (
+    StructuralValidationCalibration,
+    first_structural_validation_calibration,
+)
 from .paired import (
     PairedReplicationPlan,
     ReplicationSeeds,
@@ -17,6 +21,7 @@ from .structural import (
     TopologyStructuralSummary,
     run_structural_ensemble,
 )
+from .structural_io import write_structural_result
 from .treatments import (
     NonNetworkInitialConditions,
     PreparedTopologyTreatment,
@@ -32,11 +37,14 @@ __all__ = [
     "ReplicationSeeds",
     "StructuralEnsembleRecord",
     "StructuralEnsembleResult",
+    "StructuralValidationCalibration",
     "TopologySpecification",
     "TopologyStructuralSummary",
     "derive_graph_seed",
     "derive_semantic_seed",
+    "first_structural_validation_calibration",
     "prepare_paired_replication",
     "prepare_paired_treatments",
     "run_structural_ensemble",
+    "write_structural_result",
 ]
