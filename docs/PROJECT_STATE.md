@@ -249,16 +249,11 @@ Use `file` first if the file type is uncertain.
 
 ## 9. Refined Model Status
 
-The refined model from the doctoral report has NOT yet been implemented.
-
-The current legacy modules must not simply be edited until they appear to
-match the report.
-
-The refined implementation will be developed separately under:
+Implementation of the refined fixed-topology model has STARTED under:
 
     src/model/refined/
 
-Proposed initial structure:
+The package scaffold now exists:
 
     src/model/refined/
     |-- __init__.py
@@ -274,8 +269,29 @@ Proposed initial structure:
     |-- transition.py
     `-- simulator.py
 
-The first implementation target is ONLY the refined fixed-topology market
-model defined by Equations (35)-(82).
+Implemented so far:
+
+- `RefinedParameters` for the homogeneous first-stage benchmark;
+- parameter validation for the report-defined core restrictions;
+- `RefinedState` for persistent state `(theta, b, x, p, R, W)`;
+- `PeriodOutputs` for non-persistent within-period objects;
+- binary feasible-graph validation for Equations (35)-(36);
+- graph neighbourhood and degree construction;
+- graph-supported row-stochastic attention validation for Equations (37)-(38);
+- initial-state validation for Equation (40), including inventory bounds;
+- focused tests in `tests/test_refined_state_and_parameters.py`.
+
+The legacy modules remain unchanged and must not be mutated into the refined
+model.
+
+The remaining refined runtime equations have NOT yet been implemented.
+
+Important verification note:
+
+The new test file has been added to the repository, but this ChatGPT coding
+session did not have shell access to the Iridis working tree. The tests must
+therefore be run on Iridis after pulling the branch before this checkpoint is
+labelled test-passing.
 
 ---
 
@@ -283,20 +299,23 @@ model defined by Equations (35)-(82).
 
 NEXT STEP:
 
-    Implement the refined core market model, Equations (35)-(82).
+    Implement PeriodShocks and the refined fundamentals/signals block,
+    Equations (42)-(46), with unit tests.
 
-Before implementation:
+Required sequence:
 
-1. Read `docs/IMPLEMENTATION_MAP.md`.
-2. Read `docs/DECISIONS.md`.
-3. Verify the relevant equations directly against the doctoral report.
-4. Create the `src/model/refined/` package.
-5. Implement the model block-by-block.
-6. Write tests alongside the implementation.
+1. Pull the latest `refined-model` branch on Iridis.
+2. Run `tests/test_refined_state_and_parameters.py`.
+3. Implement `PeriodShocks` in `src/model/refined/shocks.py`.
+4. Implement `update_fundamental(...)` for Equation (42).
+5. Implement `stationary_fundamental_variance(...)` for Equation (43).
+6. Implement `fundamental_value(...)` for Equation (44).
+7. Implement `private_signals(...)` for Equations (45)-(46).
+8. Add deterministic unit tests for the entire block.
 
-The first computational milestone is NOT a large Monte Carlo simulation.
+Do not implement a large Monte Carlo simulation yet.
 
-The first milestone is:
+The first computational milestone remains:
 
     one deterministic period of the refined model
     produces the exact transition implied by the report.
@@ -426,6 +445,5 @@ When starting a new ChatGPT conversation, use:
     or terminology without grounding the change in the report.
 
     Current task:
-    Implement the refined fixed-topology model, beginning with
-    Equations (35)-(82).
-
+    Continue the refined fixed-topology implementation from the recorded
+    NEXT STEP.
