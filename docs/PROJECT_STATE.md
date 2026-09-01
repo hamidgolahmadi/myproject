@@ -16,8 +16,11 @@ Stable restructuring checkpoint:
 
     git tag: restructuring-complete
 
-The doctoral report `report1_25_08_2026.pdf` is the scientific source of
-truth. Legacy code is reference/reproducibility code only.
+Scientific source of truth:
+
+    report1_25_08_2026.pdf
+
+Legacy code is reference/reproducibility code only.
 
 ---
 
@@ -54,11 +57,12 @@ Core model:
         transition.py
         simulator.py
 
-Refined experiment-design layer:
+Refined experiment layer:
 
     src/experiments/refined/
         __init__.py
         paired.py
+        treatments.py
 
 Refined topology layer:
 
@@ -66,14 +70,13 @@ Refined topology layer:
         __init__.py
         generators.py
 
-Legacy files under `src/model/`, `src/experiments/`, and `src/topologies/`
-outside the refined namespaces must not override the report specification.
+Legacy files outside these refined namespaces must not override the report.
 
 ---
 
 ## 4. Frozen Scientific Decisions
 
-The following remain binding:
+Binding decisions include:
 
 - `G` is the fixed/exogenous directed binary feasible-information graph in the
   first stage.
@@ -89,9 +92,9 @@ The following remain binding:
 - First adaptive attention is frictionless reputation-sensitive softmax.
 - `alpha = 0` is a mandatory network-propagation negative control.
 - Random-number generation remains outside transition logic.
-- Paired topology comparisons reuse the same shock path and non-network
-  randomness within each replication.
-- Random seeds have semantic roles; graph randomness is topology-specific.
+- Paired topology comparisons reuse the same realised shock path and common
+  non-network initial conditions within each replication.
+- Graph randomness is topology-specific and uses semantic graph seeds.
 - Formal stability later concerns the complete equilibrium Jacobian `J*`, not
   the spectral radius of `W`.
 
@@ -102,10 +105,10 @@ See `docs/DECISIONS.md` for the full decision register.
 ## 5. Refined Core Status
 
 The refined fixed-topology runtime corresponding to Equations (35)-(82) is
-implemented and verified, including:
+implemented and VERIFIED on Iridis, including:
 
-- parameter and state objects;
-- graph/attention validation;
+- parameter/state objects;
+- graph and attention validation;
 - fundamental and private-signal block;
 - lagged social belief update;
 - reputation-sensitive attention;
@@ -116,12 +119,12 @@ implemented and verified, including:
 - deterministic multi-period simulation;
 - explicit shock-path generation with separated RNG substreams.
 
-The canonical simulator contains no duplicate economic equations: it repeatedly
-calls `transition_one_period(...)` on explicit `PeriodShocks` objects.
+The simulator contains no duplicate economic equations; it repeatedly calls
+`transition_one_period(...)` on explicit `PeriodShocks` objects.
 
 ---
 
-## 6. Paired Experiment-Design Status
+## 6. Paired Replication Planning
 
 Implemented and VERIFIED on Iridis:
 
@@ -133,72 +136,151 @@ with:
     PairedReplicationPlan
     prepare_paired_replication(...)
 
-Within one replication the following are common across topology treatments:
+Common within a replication:
 
     shock_seed
     initial_state_seed
     type_assignment_seed
     realised shock_path
 
-Each named topology receives its own deterministic `graph_seed`. Graph-seed
-assignment is invariant to the ordering of topology labels in configuration.
+Topology-specific:
 
-This layer prepares random inputs only; it does not generate graphs or run a
-Monte Carlo experiment.
+    graph_seed
+
+Graph-seed assignment is deterministic by topology label and invariant to the
+ordering of topology labels in configuration.
 
 ---
 
-## 7. Refined Topology Generators
+## 7. Refined Benchmark Topology Generators
 
-NEWLY IMPLEMENTED under:
+Implemented and VERIFIED on Iridis under:
 
     src/topologies/refined/generators.py
 
-The implementation follows Section 5.3 of the report rather than legacy
-topology code.
-
-Common benchmark restrictions from Equation (191):
+Common Section 5.3 restrictions:
 
     directed G
     g_ii = 0
     no duplicate directed edges
-    exactly K outgoing links per agent
+    exactly K outgoing links per row
     total links = N K
 
-Implemented generators:
+Implemented:
 
     generate_random_fixed_out_degree(...)
-
-For each agent, choose exactly K distinct sources uniformly without replacement
-from the other N-1 agents. This is NOT an unconstrained Erdos-Renyi graph.
-
     generate_small_world(...)
-
-Start from the directed ring lattice with K/2 nearest neighbours on each side
-(K even), then independently rewire outgoing lattice edges with probability
-`p_sw` while preserving source, no-self-link, no-duplicate, and exact row
-out-degree restrictions.
-
     generate_hub_dominated(...)
 
-Allocate N*K directed edge slots in random source order. For an eligible target
-j, attachment probability is proportional to:
+The Random benchmark is fixed-out-degree, not unconstrained Erdos-Renyi.
+Small-World begins from the directed ring lattice and rewires outgoing edges
+while preserving K. Hub-dominated uses attachment weight
+`in_degree_j + a0`, `a0 > 0`.
 
-    in_degree_j + a0
+After the 166-test Iridis checkpoint, the hub-dominated generator was further
+aligned with Equation (212): formation and node relabelling now use separate
+child RNG streams derived from `graph_seed`, and the completed hub graph is
+randomly relabelled so arbitrary numerical node labels are not mechanically
+attached to hub positions.
 
-with `a0 > 0`, matching Equations (198)-(201). The report's SF/Scale-Free label
-is interpreted as a finite hub-dominated benchmark unless a separate power-law
-diagnostic supports a stronger claim.
-
-All public generator APIs take `graph_seed` and structural parameters only;
-they do not accept `shock_seed`, `initial_state_seed`, or
-`type_assignment_seed`.
-
-The topology-generator tests are committed but AWAIT IRIDIS verification.
+This relabelling change is committed but awaits the next Iridis verification.
 
 ---
 
-## 8. Verified Test Checkpoints
+## 8. Explicit Neutral Initial Attention
+
+NEWLY IMPLEMENTED in:
+
+    src/model/refined/attention.py
+
+Function:
+
+    uniform_attention_from_graph(G)
+
+It implements Equations (41), (225)-(226): every feasible source in row i
+receives weight `1 / d_i`; unsupported entries receive zero. For benchmark
+graphs with fixed out-degree K, every supported initial weight is `1 / K`.
+
+Three direct tests were added.
+
+---
+
+## 9. Paired Topology Treatment Construction
+
+NEWLY IMPLEMENTED in:
+
+    src/experiments/refined/treatments.py
+
+Objects/functions:
+
+    TopologySpecification
+    NonNetworkInitialConditions
+    PreparedTopologyTreatment
+    prepare_paired_treatments(...)
+
+The construction is:
+
+    PairedReplicationPlan
+        + topology-specific graph_seed
+        + TopologySpecification
+        + common NonNetworkInitialConditions
+        + common RefinedParameters
+            -> generated G
+            -> uniform W_0(G)
+            -> RefinedState
+            -> PreparedTopologyTreatment
+
+Each prepared treatment is simulation-ready and contains:
+
+    topology specification
+    graph seed
+    generated G
+    initial RefinedState
+    common realised shock path
+    common parameter object
+
+The treatment builder performs NO random sampling of non-network initial
+conditions and runs NO simulation.
+
+### Important initial-condition scope
+
+The report fixes the pairing rule for non-network initial conditions and gives
+a neutral rule for some components: positions and reputation may start at zero,
+`theta_0` may be drawn from its stationary distribution, and `W_0(G)` is
+uniform on feasible support.
+
+However, the report does not uniquely fix numerical rules for every component,
+especially `b_0` and `p_0`. Therefore the current treatment builder does not
+silently invent values such as `b_0 = theta_0 1` or `p_0 = v_0`.
+
+Instead, `NonNetworkInitialConditions` is supplied explicitly and identically
+to all paired topology treatments. The already-reserved `initial_state_seed`
+remains unused until an explicit initial-condition generation rule is adopted
+and documented.
+
+---
+
+## 10. Generated-Treatment Negative Control
+
+A new end-to-end integration test constructs actual Random, Small-World, and
+hub-dominated treatments from the paired plan and runs them with `alpha = 0`.
+
+Required result:
+
+- theta paths equal;
+- beliefs equal;
+- positions/actions equal;
+- net order flow equal;
+- prices/returns equal;
+- profits/reputations equal;
+
+while graph-supported attention and reputation-score matrices are allowed to
+differ because the graphs differ. This is the report-defined network-null
+control on the full generated-treatment pipeline.
+
+---
+
+## 11. Verified Test Checkpoints
 
 Verified on Iridis:
 
@@ -212,19 +294,29 @@ Verified on Iridis:
     100 passed  + deterministic multi-period simulator + alpha=0 null test
     115 passed  + shock-path generation + CRN tests
     138 passed  + semantic paired replication design
+    166 passed  + refined benchmark topology generators
 
 Latest verified checkpoint:
 
-    138 passed in 2.06s
+    166 passed in 1.56s
 
 with a clean working tree and branch up to date with `origin/refined-model`.
 
-The new topology-generator test file adds 28 pytest cases and has not yet been
-run on Iridis.
+New changes after that checkpoint add:
+
+    3 test cases   explicit uniform W_0(G)
+    29 test cases  paired treatment construction/validation
+    1 test case    generated R/SW/SF alpha=0 end-to-end control
+
+Expected next refined total:
+
+    199 passed
+
+The 199-test checkpoint has NOT yet been verified on Iridis.
 
 ---
 
-## 9. Computational Milestones
+## 12. Computational Milestones
 
 Milestone 1 — deterministic one-period transition: VERIFIED
 
@@ -236,7 +328,10 @@ Milestone 4 — explicit shock-path generation / CRN: VERIFIED
 
 Milestone 5 — semantic paired replication plan: VERIFIED
 
-Milestone 6 — refined benchmark topology generators:
+Milestone 6 — refined benchmark topology generators: VERIFIED at 166 tests;
+additional Eq. (212) hub relabelling awaits re-verification
+
+Milestone 7 — paired topology treatment construction:
 
     IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
 
@@ -244,7 +339,7 @@ No large refined Monte Carlo experiment should be submitted yet.
 
 ---
 
-## 10. Immediate Next Step
+## 13. Immediate Next Step
 
 NEXT STEP:
 
@@ -253,33 +348,33 @@ NEXT STEP:
 
        python -m pytest -q tests/test_refined_*.py
 
-3. Expected total if the topology generators are correct:
+3. Expected total:
 
-       166 passed
+       199 passed
 
-4. If all 166 pass, record Milestone 6 as VERIFIED.
-5. Then implement graph-supported uniform initial attention
-   `W_0 = W_unif(G)` as an explicit reusable helper if not already exposed,
-   and construct a refined paired topology treatment object that combines:
+4. If all 199 pass, record Milestone 7 as VERIFIED and the Equation (212)
+   hub-relabel change as re-verified.
+5. Then implement structural graph diagnostics required by Section 5.3.1 before
+   running market-outcome Monte Carlo comparisons. At minimum begin with:
 
-       paired replication plan
-       topology-specific graph seed
-       generated G
-       graph-supported W_0
-       common non-network initial conditions
+       in-degree distribution
+       in-degree Gini
+       structural hub share
+       clustering
+       component structure
+       average path length on the largest connected component
 
-6. Add an end-to-end paired-treatment construction test, including the
-   `alpha=0` negative control across the generated benchmark graphs.
+6. Validate that the generated ensembles exhibit the intended structural
+   separation before interpreting any topology outcome difference.
 
-Do not start a large Monte Carlo run until paired treatment construction and
-structural graph validation are explicit and tested.
+Do not start a large Monte Carlo run yet.
 
 ---
 
-## 11. Planned Development Sequence
+## 14. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model, Equations (35)-(82)   COMPLETE
-    Phase 2  Refined binary topology generators, G separated from W   IN PROGRESS
+    Phase 2  Refined binary topology generators, G separated from W   COMPLETE/VERIFYING
     Phase 3  Deterministic integration and multi-period tests         COMPLETE
     Phase 4  Paired fixed-topology Monte Carlo design                 IN PROGRESS
     Phase 5  Refined market metrics and CID
@@ -293,7 +388,7 @@ structural graph validation are explicit and tested.
 
 ---
 
-## 12. New-Chat Handoff Prompt
+## 15. New-Chat Handoff Prompt
 
 When starting a new conversation:
 
