@@ -180,15 +180,23 @@ def generate_hub_dominated(
     ``in_degree[j] + a0``.
 
     The positive initial-attractiveness offset ``a0`` ensures that zero-degree
-    nodes retain positive attachment probability.  The report uses the label
-    Scale-Free/SF for continuity, but this finite construction is interpreted
-    as hub-dominated unless a separate degree-distribution diagnostic supports
-    a stronger claim.
+    nodes retain positive attachment probability.  After the graph is formed,
+    an independent child RNG stream randomly relabels all nodes as required by
+    Equation (212), preventing arbitrary numerical labels from being attached
+    mechanically to structural hub positions.
+
+    The report uses the label Scale-Free/SF for continuity, but this finite
+    construction is interpreted as hub-dominated unless a separate degree-
+    distribution diagnostic supports a stronger claim.
     """
 
     n_agents, k, graph_seed = _common_inputs(n_agents, k, graph_seed)
     a0 = _positive_scalar("a0", a0)
-    rng = np.random.default_rng(graph_seed)
+
+    root_sequence = np.random.SeedSequence(graph_seed)
+    formation_sequence, relabelling_sequence = root_sequence.spawn(2)
+    rng = np.random.default_rng(formation_sequence)
+    relabelling_rng = np.random.default_rng(relabelling_sequence)
 
     graph = np.zeros((n_agents, n_agents), dtype=np.int8)
     in_degree = np.zeros(n_agents, dtype=np.int64)
@@ -208,4 +216,8 @@ def generate_hub_dominated(
         graph[source, target] = 1
         in_degree[target] += 1
 
-    return _validate_benchmark_graph(graph, k)
+    permutation = relabelling_rng.permutation(n_agents)
+    relabelled = np.zeros_like(graph)
+    relabelled[np.ix_(permutation, permutation)] = graph
+
+    return _validate_benchmark_graph(relabelled, k)
