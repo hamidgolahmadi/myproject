@@ -20,6 +20,7 @@ from .market import market_return, price_change, update_price
 from .parameters import RefinedParameters
 from .reputation import realised_profits, update_reputation
 from .shocks import PeriodShocks
+from .simulator import SimulationResult, simulate_shock_path
 from .state import (
     PeriodOutputs,
     RefinedState,
@@ -44,6 +45,7 @@ __all__ = [
     "PeriodShocks",
     "RefinedParameters",
     "RefinedState",
+    "SimulationResult",
     "belief_noise_covariance",
     "build_neighbourhoods",
     "desired_actions",
@@ -58,6 +60,7 @@ __all__ = [
     "price_change",
     "private_signals",
     "realised_profits",
+    "simulate_shock_path",
     "standardised_reputation_scores",
     "stationary_fundamental_variance",
     "transition_one_period",
