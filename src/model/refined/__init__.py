@@ -21,6 +21,15 @@ from .state import (
     validate_attention,
     validate_graph_support,
 )
+from .trading import (
+    desired_actions,
+    execute_actions,
+    inventory_feasible_bounds,
+    net_order_flow,
+    perceived_values,
+    update_positions,
+    valuation_gaps,
+)
 
 __all__ = [
     "PeriodOutputs",
@@ -29,12 +38,19 @@ __all__ = [
     "RefinedState",
     "belief_noise_covariance",
     "build_neighbourhoods",
+    "desired_actions",
+    "execute_actions",
     "fundamental_value",
     "initialise_state",
+    "inventory_feasible_bounds",
+    "net_order_flow",
+    "perceived_values",
     "private_signals",
     "stationary_fundamental_variance",
     "update_beliefs",
     "update_fundamental",
+    "update_positions",
     "validate_attention",
     "validate_graph_support",
+    "valuation_gaps",
 ]
