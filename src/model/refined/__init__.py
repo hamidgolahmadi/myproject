@@ -19,7 +19,7 @@ from .fundamentals import (
 from .market import market_return, price_change, update_price
 from .parameters import RefinedParameters
 from .reputation import realised_profits, update_reputation
-from .shocks import PeriodShocks
+from .shocks import PeriodShocks, generate_shock_path
 from .simulator import SimulationResult, simulate_shock_path
 from .state import (
     PeriodOutputs,
@@ -51,6 +51,7 @@ __all__ = [
     "desired_actions",
     "execute_actions",
     "fundamental_value",
+    "generate_shock_path",
     "initialise_state",
     "inventory_feasible_bounds",
     "local_reputation_statistics",
