@@ -1,3 +1,5 @@
+
+
 # Python
 __pycache__/
 *.pyc
@@ -28,7 +30,7 @@ oat_network_importance/
 oat_topology_comparison/
 
 # Generated topology data
-topologies/
+/topologies/
 topologies_extreme/
 
 # Generated plots
@@ -42,3 +44,23 @@ paper_figures/
 *.tmp
 *~
 .DS_Store
+
+# Generated results
+results/**
+!results/**/
+!results/**/.gitkeep
+
+# Generated topology cache
+data/topology_cache/**
+!data/topology_cache/.gitkeep
+.venv/
+
+# Local generated / legacy runtime artifacts
+/extreme_topologies_v2/
+/interaction_parameter_samples/
+/interaction_phase_diagram/
+/interaction_phase_diagram_coarse/
+/oat_parameter_samples/
+/alpha_*.png
+/network_topologies.png
+/reward_boxplot.png

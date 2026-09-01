@@ -15,7 +15,8 @@ set -eo pipefail
 mkdir -p logs
 mkdir -p oat_results
 
-source /home/hg2e25/venvs/netppo/bin/activate
+source .venv/bin/activate
+unset PYTHONPATH
 
 TOPOLOGIES=("random" "small_world" "scale_free")
 
