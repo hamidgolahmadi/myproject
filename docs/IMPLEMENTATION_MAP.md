@@ -2,1400 +2,682 @@
 
 Last updated: 2026-09-01
 
-## 1. Purpose
+## 1. Purpose and source of truth
 
-This document maps the doctoral-report model into code.
+This document maps the doctoral report into the current refined codebase:
 
-It is the implementation bridge between:
+    report equation / design object
+        -> Python module
+        -> public function / object
+        -> validation layer
 
-    report equation
-        ->
-    mathematical object
-        ->
-    Python module
-        ->
-    Python function
-        ->
-    validation test
+Scientific source of truth:
 
-The doctoral report remains the scientific source of truth.
+    report1_25_08_2026.pdf
 
-If this file conflicts with the report, the report wins and this file must
-be corrected before implementation continues.
+If this map conflicts with the report, the report wins.
+
+Legacy code is reproducibility/reference code only.
 
 ---
 
-# 2. Initial Implementation Scope
+## 2. Canonical refined architecture
 
-The FIRST implementation target is the refined fixed-topology market model:
+Core economic model:
 
-    Equations (35)-(82)
+    src/model/refined/
+        parameters.py
+        state.py
+        shocks.py
+        fundamentals.py
+        beliefs.py
+        attention.py
+        trading.py
+        market.py
+        reputation.py
+        transition.py
+        simulator.py
 
-This contains:
+Topology support and structural validation:
 
-- network support;
-- effective attention;
-- state definitions;
-- timing;
-- initial conditions;
-- fundamental process;
-- private signals;
-- belief formation;
-- fixed and adaptive attention;
-- valuation;
-- bounded desired trading;
-- inventory projection;
-- positions;
-- net order flow;
-- price;
-- return;
-- profit;
-- reputation;
-- complete within-period transition.
+    src/topologies/refined/
+        generators.py
+        diagnostics.py
 
-Later analytical equations and later research extensions are deliberately
-kept outside the first implementation milestone.
+Paired experiment / evaluation layer:
+
+    src/experiments/refined/
+        seeding.py
+        paired.py
+        treatments.py
+        structural.py
+        calibration.py
+        structural_io.py
+        market_metrics.py
+
+The economic transition is implemented only in `src/model/refined/`. Evaluation modules consume completed simulation output and must not duplicate economic dynamics.
 
 ---
 
-# 3. Canonical State Partition
+## 3. Canonical state and timing
 
-## Persistent states
+Persistent state at date t:
 
-The period-t persistent state is:
+    X_t = (theta_t, b_t, x_t, p_t, R_t, W_t)
 
-    theta_t
-    b_t
-    x_t
-    p_t
-    R_t
-    W_t
-
-Suggested Python state object:
-
-    RefinedState
-
-located in:
+Implementation:
 
     src/model/refined/state.py
+    RefinedState
 
-Suggested fields:
-
-    theta
-    beliefs
-    positions
-    price
-    reputation
-    attention
-
----
-
-## Within-period objects
-
-The main within-period objects are:
+Within-period non-persistent outputs:
 
     v_t
     s_t
     vhat_t
     m_t
-    desired_actions_t
-    actions_t
+    desired action
+    executed action
     F_t
     r_t
-    profits_t
+    pi_t
     z_t
 
-These should not automatically be treated as persistent states.
-
-They may be stored in a separate diagnostic object:
-
-    PeriodOutputs
-
-located in:
+Implementation:
 
     src/model/refined/state.py
+    PeriodOutputs
 
----
-
-## Exogenous innovations
-
-The period-t innovation bundle contains:
+Exogenous innovation bundle:
 
     u_theta_t
     epsilon_s_t
     epsilon_b_t
     epsilon_p_t
 
-Suggested object:
-
-    PeriodShocks
-
-located in:
+Implementation:
 
     src/model/refined/shocks.py
+    PeriodShocks
 
-Random-number generation must be separated from economic transition logic.
+Binding Equation (39) order:
 
----
-
-# 4. Canonical Within-Period Timing
-
-Equation (39) is binding for implementation.
-
-The period transition is:
-
-    inherited:
-        theta_{t-1}
-        b_{t-1}
-        x_{t-1}
-        p_{t-1}
-        R_{t-1}
-        W_{t-1}
-
-    then:
-
-        theta_t
-        v_t
-        s_t
-
+    inherited W_{t-1}, theta_{t-1}, b_{t-1}, x_{t-1}, p_{t-1}, R_{t-1}
+        -> theta_t, v_t, s_t
         -> b_t
-
         -> vhat_t
-
         -> m_t
-
-        -> desired action a_tilde
-
-        -> executed action a_t
-
+        -> desired action
+        -> executed action
         -> x_t
-
         -> F_t
-
         -> p_t
-
         -> r_t
-
-        -> profit pi_t
-
+        -> pi_t
         -> R_t
-
         -> z_t
-
         -> W_t
 
-The critical timing restriction is:
+Implementation coordinator:
+
+    src/model/refined/transition.py
+    transition_one_period(...)
+
+Critical invariant:
 
     b_t uses W_{t-1}
-
-NOT:
-
-    b_t uses W_t
-
-W_t is generated at the end of period t and first affects beliefs in
-period t+1.
+    W_t first affects b_{t+1}
 
 ---
 
-# 5. Proposed Refined Package
+## 4. Equations (35)-(41): graph, attention support, initial state
 
-    src/model/refined/
-    |-- __init__.py
-    |-- parameters.py
-    |-- state.py
-    |-- shocks.py
-    |-- fundamentals.py
-    |-- beliefs.py
-    |-- attention.py
-    |-- trading.py
-    |-- market.py
-    |-- reputation.py
-    |-- transition.py
-    `-- simulator.py
-
-No existing pilot environment should be modified to become the refined
-model.
-
-The refined implementation is a separate package.
-
----
-
-# 6. Equation-to-Code Map: Equations (35)-(41)
-
-## Equation (35)
-
-Object:
-
-    G = [g_ij], g_ij in {0,1}
-
-Meaning:
-
-    directed feasible-information adjacency matrix
+### Eq. (35): binary directed feasible graph G
 
 Implementation:
 
     src/model/refined/state.py
     validate_graph_support(...)
 
-Primary topology generation will later live under:
+Benchmark generation:
 
-    src/topologies/refined/
+    src/topologies/refined/generators.py
 
-Required invariants:
-
-    G is binary
-    no unsupported attention weights
-    every agent has at least one feasible information source
-
----
-
-## Equation (36)
-
-Objects:
-
-    N_i = {j : g_ij = 1}
-    d_i = |N_i|
-    d_i >= 1
+### Eq. (36): neighbourhoods and row degree
 
 Implementation:
 
     src/model/refined/state.py
-    build_neighbourhoods(G)
+    build_neighbourhoods(...)
 
-Outputs:
-
-    neighbourhood masks / neighbour indices
-    degree vector d
-
----
-
-## Equation (37)
-
-Object:
-
-    W_t = [w_ij,t]
-
-Meaning:
-
-    effective social-attention matrix
+### Eqs. (37)-(38): effective attention W and graph support
 
 Implementation:
 
     src/model/refined/state.py
+    validate_attention(...)
 
-W is NOT the same object as G.
+Binding distinction:
 
----
+    G != W
 
-## Equation (38)
-
-Restrictions:
-
-    w_ij,t >= 0
-    sum_j w_ij,t = 1
-    g_ij = 0 => w_ij,t = 0
-
-Implementation:
-
-    src/model/refined/state.py
-    validate_attention(W, G)
-
-Required test:
-
-    test_attention_support_and_row_sums
-
----
-
-## Equation (39)
-
-Object:
-
-    complete timing sequence
+### Eq. (39): timing
 
 Implementation:
 
     src/model/refined/transition.py
-    step(...)
+    transition_one_period(...)
 
-This equation determines call ordering.
-
-Required test:
-
-    test_period_timing
-
-Especially test that:
-
-    W_t never enters b_t.
-
----
-
-## Equation (40)
-
-Initial state:
-
-    theta_0
-    b_0
-    x_0
-    p_0
-    R_0
-    W_0
+### Eq. (40): initial state
 
 Implementation:
 
     src/model/refined/state.py
     initialise_state(...)
 
----
-
-## Equation (41)
-
-Uniform graph-supported initial attention:
-
-    w_ij,0 = 1/d_i   if j in N_i
-             0       otherwise
-
-Implementation:
-
-    src/model/refined/attention.py
-    uniform_attention_from_graph(G)
-
-Required tests:
-
-    row sums equal one
-    unsupported elements equal zero
-    all feasible neighbours receive equal weight
-
----
-
-# 7. Equation-to-Code Map: Fundamentals and Signals
-
-## Equation (42)
-
-Fundamental state:
-
-    theta_t = rho_theta * theta_{t-1} + u_theta_t
-
-with:
-
-    u_theta_t ~ N(0, sigma_theta^2)
-    |rho_theta| < 1
-
-Implementation:
-
-    src/model/refined/fundamentals.py
-    update_fundamental(...)
-
----
-
-## Equation (43)
-
-Stationary variance:
-
-    Var(theta_t) = sigma_theta^2 / (1 - rho_theta^2)
-
-Purpose:
-
-    initialisation and analytical validation
-
-Implementation:
-
-    src/model/refined/fundamentals.py
-    stationary_fundamental_variance(...)
-
-This is not a separate period-transition equation.
-
----
-
-## Equation (44)
-
-Fundamental value:
-
-    v_t = v_bar + psi * theta_t
-
-Implementation:
-
-    src/model/refined/fundamentals.py
-    fundamental_value(...)
-
----
-
-## Equation (45)
-
-Private signal:
-
-    s_i,t = theta_t + epsilon_s_i,t
-
-Implementation:
-
-    src/model/refined/fundamentals.py
-    private_signals(...)
-
-Shock generation:
-
-    src/model/refined/shocks.py
-
----
-
-## Equation (46)
-
-Vector signal representation:
-
-    s_t = theta_t * 1 + epsilon_s_t
-
-Implementation:
-
-    same runtime function as Equation (45)
-
-Do not duplicate scalar and vector implementations.
-
----
-
-## Equation (47)
-
-Signal covariance decomposition.
-
-Purpose:
-
-    analytical diagnostic for common exposure
-
-Initial implementation location:
-
-    src/analysis/refined/belief_covariance.py
-
-This equation is NOT required to advance the runtime simulation by one
-period.
-
----
-
-# 8. Equation-to-Code Map: Beliefs
-
-## Equation (48)
-
-Agent-level belief update:
-
-    b_i,t
-      =
-    (1-alpha) s_i,t
-      +
-    alpha * sum_j w_ij,t-1 b_j,t-1
-      +
-    epsilon_b_i,t
-
-Implementation:
-
-    src/model/refined/beliefs.py
-    update_beliefs(...)
-
----
-
-## Equation (49)
-
-Belief-noise vector and covariance.
-
-Runtime noise generation:
-
-    src/model/refined/shocks.py
-
-Parameter definition:
-
-    src/model/refined/parameters.py
-
----
-
-## Equation (50)
-
-Vector belief update:
-
-    b_t
-      =
-    (1-alpha) s_t
-      +
-    alpha W_{t-1} b_{t-1}
-      +
-    epsilon_b_t
-
-This is the canonical runtime implementation of Equations (48)-(50).
-
-Implementation:
-
-    src/model/refined/beliefs.py
-    update_beliefs(...)
-
-Do not create a simultaneous within-period solver.
-
-Specifically, DO NOT implement:
-
-    b_t = (I - alpha W_t)^(-1) ...
-
-That expression is not the within-period solution concept of the ABM.
-
----
-
-## Equation (51)
-
-Conditional local derivative:
-
-    partial b_t / partial b_{t-1}' = alpha W_{t-1}
-
-Purpose:
-
-    analytical derivative / later Jacobian work
-
-Later implementation:
-
-    src/stability/
-
-Not required in the first simulator.
-
----
-
-## Equations (52)-(54)
-
-Conditional covariance decomposition.
-
-Purpose:
-
-    distinguish common exposure from network propagation
-
-Later implementation:
-
-    src/analysis/refined/belief_covariance.py
-
-These equations are analytical diagnostics rather than state-transition
-equations.
-
----
-
-## Equation (55)
-
-No-social counterfactual:
-
-    alpha = 0
-
-implies:
-
-    b_t = s_t + epsilon_b_t
-
-This is a mandatory validation condition.
-
-Required test:
-
-    test_alpha_zero_removes_network_channel
-
-With identical non-network states and shocks, changing G or W must not
-alter market outcomes through social transmission when alpha = 0.
-
----
-
-# 9. Equation-to-Code Map: Attention
-
-## Equation (56)
-
-Fixed uniform effective influence:
-
-    w_ij = 1/d_i  if j in N_i
-           0      otherwise
+### Eq. (41): neutral graph-supported W_0
 
 Implementation:
 
     src/model/refined/attention.py
     uniform_attention_from_graph(...)
 
-Use for the fixed-influence benchmark.
+---
+
+## 5. Equations (42)-(47): fundamentals and private signals
+
+### Eq. (42): AR(1) fundamental state
+
+    src/model/refined/fundamentals.py
+    update_fundamental(...)
+
+### Eq. (43): stationary fundamental variance
+
+    src/model/refined/fundamentals.py
+    stationary_fundamental_variance(...)
+
+### Eq. (44): fundamental value v_t
+
+    src/model/refined/fundamentals.py
+    fundamental_value(...)
+
+### Eqs. (45)-(46): private signals
+
+    src/model/refined/fundamentals.py
+    private_signals(...)
+
+Shock-path generation:
+
+    src/model/refined/shocks.py
+    generate_shock_path(...)
+
+### Eq. (47): common-fundamental signal covariance
+
+Analytical interpretation only at current stage; no duplicate runtime equation.
 
 ---
 
-## Equation (57)
+## 6. Equations (48)-(55): beliefs
 
-Neighbourhood mean reputation:
+### Eqs. (48)-(50): lagged social belief update
 
-    R_bar_Ni,t
+    src/model/refined/beliefs.py
+    update_beliefs(...)
 
-Implementation:
+Canonical form:
+
+    b_t = (1-alpha)s_t + alpha W_{t-1} b_{t-1} + epsilon_b_t
+
+### Eq. (49): belief-noise covariance
+
+    src/model/refined/beliefs.py
+    belief_noise_covariance(...)
+
+### Eq. (51): local derivative alpha W_{t-1}
+
+Reserved for later Jacobian work; not a separate runtime transition.
+
+### Eqs. (52)-(54): covariance decomposition
+
+Analytical mechanism diagnostics; deferred.
+
+### Eq. (55): alpha=0 exclusion control
+
+Verified in deterministic and generated-treatment multi-period tests.
+
+---
+
+## 7. Equations (56)-(62): effective attention
+
+### Eq. (56): fixed uniform graph-supported W
+
+    src/model/refined/attention.py
+    uniform_attention_from_graph(...)
+
+### Eqs. (57)-(58): local reputation mean and dispersion
 
     src/model/refined/attention.py
     local_reputation_statistics(...)
 
----
-
-## Equation (58)
-
-Regularised local reputation dispersion:
-
-    s_R,i,t
-
-with positive floor:
-
-    sigma_0 > 0
-
-Implementation:
+### Eq. (59): relative reputation scores z_ij,t
 
     src/model/refined/attention.py
-    local_reputation_statistics(...)
+    standardised_reputation_scores(...)
 
-The numerical floor is part of the model and must not be silently removed.
-
----
-
-## Equation (59)
-
-Relative reputation score:
-
-    z_ij,t
-      =
-    (R_j,t - R_bar_Ni,t) / s_R,i,t
-
-Implementation:
+### Eq. (60): frictionless reputation softmax
 
     src/model/refined/attention.py
-    standardise_reputation(...)
+    update_attention(...)
 
-Only feasible sources j in N_i are evaluated.
+Current first-stage implementation:
 
----
+    tau = 0
 
-## Equation (60)
+### Eqs. (61)-(62): transition/inertia extension
 
-Frictionless reputation-sensitive attention:
-
-    w_ij,t
-      =
-    exp(beta_i z_ij,t)
-    /
-    sum_{ell in N_i} exp(beta_i z_iell,t)
-
-for j in N_i.
-
-Outside N_i:
-
-    w_ij,t = 0
-
-Implementation:
-
-    src/model/refined/attention.py
-    adaptive_attention_frictionless(...)
-
-Numerical implementation should use a stable softmax.
-
-This is the FIRST adaptive-attention implementation.
+Deferred. Must not be activated silently in first-stage results.
 
 ---
 
-## Equations (61)-(62)
+## 8. Equations (63)-(73): valuation, trading, inventory, order flow
 
-Dynamic attention with inertia / KL transition friction.
-
-These equations introduce:
-
-    tau_i
-    eta_i^W
-    rho_i^W
-
-Implementation status:
-
-    DEFERRED EXTENSION
-
-Planned function:
-
-    src/model/refined/attention.py
-    adaptive_attention_dynamic(...)
-
-The first confirmatory implementation uses the nested frictionless case:
-
-    tau_i = 0
-
-which reduces to Equation (60).
-
-Do not activate attention inertia silently in the first-stage simulations.
-
----
-
-# 10. Equation-to-Code Map: Trading
-
-## Equation (63)
-
-Perceived value:
-
-    vhat_i,t = v_bar + psi * b_i,t
-
-Implementation:
+### Eq. (63): perceived value
 
     src/model/refined/trading.py
     perceived_values(...)
 
----
-
-## Equation (64)
-
-Valuation gap:
-
-    m_i,t = vhat_i,t - p_{t-1}
-
-Implementation:
+### Eq. (64): valuation gap using p_{t-1}
 
     src/model/refined/trading.py
     valuation_gaps(...)
 
-The inherited price p_{t-1} is used.
-
----
-
-## Equation (65)
-
-Conceptual chain:
-
-    b -> vhat -> m -> a
-
-No independent runtime equation is required.
-
-Use as a transition-order test.
-
----
-
-## Equation (66)
-
-Desired trade:
-
-    a_tilde_i,t = tanh(kappa_i * m_i,t)
-
-Implementation:
+### Eq. (66): desired tanh action
 
     src/model/refined/trading.py
     desired_actions(...)
 
----
-
-## Equation (67)
-
-Local Taylor expansion of tanh.
-
-Purpose:
-
-    analytical interpretation
-
-No separate runtime implementation.
-
----
-
-## Equation (68)
-
-Inventory-feasible action interval:
-
-    A^x_i,t
-      =
-    [-xbar_i - x_i,t-1,
-      xbar_i - x_i,t-1]
-
-Implementation:
+### Eq. (68): inventory-feasible interval
 
     src/model/refined/trading.py
-    feasible_action_bounds(...)
+    inventory_feasible_bounds(...)
 
----
-
-## Equation (69)
-
-Executed trade:
-
-    a_i,t
-      =
-    projection onto A^x_i,t
-    of tanh(kappa_i m_i,t)
-
-Implementation:
+### Eqs. (69)-(70): projected executed action
 
     src/model/refined/trading.py
     execute_actions(...)
 
-This equation is a key difference from the old pilot implementation.
-
----
-
-## Equation (70)
-
-Projection operator:
-
-    Pi_[L,U](y) = min(U, max(L,y))
-
-Implementation:
-
-    src/model/refined/trading.py
-    project_interval(...)
-
-Required tests:
-
-    interior action unchanged
-    upper-bound action clipped
-    lower-bound action clipped
-
----
-
-## Equation (71)
-
-Position update:
-
-    x_i,t = x_i,t-1 + a_i,t
-
-with:
-
-    |x_i,t| <= xbar_i
-
-Implementation:
+### Eq. (71): position update
 
     src/model/refined/trading.py
     update_positions(...)
 
-Required invariant:
-
-    position limits can never be violated.
-
----
-
-## Equation (72)
-
-Net order flow:
-
-    F_t = sum_i a_i,t
-
-Implementation:
+### Eq. (72): signed net order flow
 
     src/model/refined/trading.py
     net_order_flow(...)
 
-F_t is signed order imbalance.
+Binding interpretation:
 
-It is NOT gross trading volume.
+    F_t = sum_i a_i,t
 
----
+not gross volume.
 
-## Equation (73)
+### Eq. (73): action covariance / order-flow variance decomposition
 
-Order-flow variance decomposition:
-
-    Var(F_t)
-      =
-    sum_i Var(a_i,t)
-      +
-    2 sum_{i<j} Cov(a_i,t, a_j,t)
-
-Purpose:
-
-    mechanism diagnostic
-
-Later implementation:
-
-    src/metrics/refined/action_covariance.py
-
-Not required for the period transition.
+Next evaluation implementation stage; see Eqs. (239)-(240) below.
 
 ---
 
-# 11. Equation-to-Code Map: Market
+## 9. Equations (74)-(79): market, return, profit, reputation
 
-## Equation (74)
-
-Price change:
-
-    p_t - p_{t-1}
-      =
-    chi (v_t - p_{t-1})
-      +
-    lambda F_t
-      +
-    sigma_p epsilon_p_t
-
-Implementation:
+### Eqs. (74)-(75): anchored price law
 
     src/model/refined/market.py
+    price_change(...)
     update_price(...)
 
-This is the canonical refined price equation.
+### Eq. (76): price deviation / mispricing
 
-The fundamental anchor must be present.
+Not a separate transition. Evaluated from contemporaneous `state.price - period_output.fundamental_value`.
 
----
-
-## Equation (75)
-
-Equivalent level representation:
-
-    p_t
-      =
-    (1-chi) p_{t-1}
-      +
-    chi v_t
-      +
-    lambda F_t
-      +
-    sigma_p epsilon_p_t
-
-Implementation:
-
-    same runtime function as Equation (74)
-
-Do not maintain two independent price implementations.
-
----
-
-## Equation (76)
-
-Price deviation from fundamentals.
-
-Purpose:
-
-    mispricing diagnostic
-
-Implementation:
-
-    src/metrics/refined/market_outcomes.py
-
-Not required as an independent state transition.
-
----
-
-## Equation (77)
-
-Model return:
-
-    r_t = p_t - p_{t-1}
-
-Implementation:
+### Eq. (77): model return
 
     src/model/refined/market.py
-    model_return(...)
+    market_return(...)
 
-This project uses price change / consistently normalised log-price change.
+### Eq. (78): profit using inherited position
 
-Do not silently replace this with:
+    src/model/refined/reputation.py
+    realised_profits(...)
 
-    (P_t - P_{t-1}) / P_{t-1}
-
----
-
-# 12. Equation-to-Code Map: Profit and Reputation
-
-## Equation (78)
-
-Realised profit:
+Binding:
 
     pi_i,t = x_i,t-1 * r_t
 
-Implementation:
-
-    src/model/refined/reputation.py
-    realised_profit(...)
-
-CRITICAL:
-
-Use inherited position:
-
-    x_{t-1}
-
-NOT:
-
-    x_t
-
-The current trade must not earn the price change that it contemporaneously
-helps generate.
-
----
-
-## Equation (79)
-
-Reputation:
-
-    R_i,t
-      =
-    gamma_R R_i,t-1
-      +
-    (1-gamma_R) pi_i,t
-
-Implementation:
+### Eq. (79): reputation update
 
     src/model/refined/reputation.py
     update_reputation(...)
 
 ---
 
-# 13. Equations (80)-(82): Complete Transition
+## 10. Equations (80)-(82): complete transition blocks
 
-## Equation (80)
+### Eq. (80): exogenous information block
 
-Exogenous information block:
+    src/model/refined/fundamentals.py
+    src/model/refined/shocks.py
 
-    theta_t -> v_t, s_t
-
-Implemented through:
-
-    fundamentals.py
-    shocks.py
-
----
-
-## Equation (81)
-
-Within-period decision / market block:
-
-    (s_t, W_{t-1}, b_{t-1}, p_{t-1}, x_{t-1})
-        ->
-    b_t
-        ->
-    vhat_t
-        ->
-    m_t
-        ->
-    a_t
-        ->
-    F_t
-        ->
-    p_t
-
-Implementation coordinator:
+### Eq. (81): within-period decision/market block
 
     src/model/refined/transition.py
-    step(...)
+    transition_one_period(...)
 
----
-
-## Equation (82)
-
-Adaptive feedback block:
-
-    (p_t - p_{t-1}, x_{t-1})
-        ->
-    pi_t
-        ->
-    R_t
-        ->
-    z_t
-        ->
-    W_t
-        ->
-    b_{t+1}
-
-Implementation coordinator:
+### Eq. (82): adaptive feedback block
 
     src/model/refined/transition.py
-    step(...)
+    transition_one_period(...)
 
-Required test:
-
-    changing current-period profit may change W_t
-    but must not change b_t retrospectively.
+Current-period reputation updates W_t; W_t cannot retrospectively alter b_t.
 
 ---
 
-# 14. Parameter Object
+## 11. Multi-period simulation and randomness
 
-All model parameters should be explicit.
+Canonical simulator:
 
-Proposed file:
+    src/model/refined/simulator.py
+    SimulationResult
+    simulate_shock_path(...)
 
-    src/model/refined/parameters.py
+`SimulationResult.states` contains:
 
-Initial parameter groups:
+    X_0, X_1, ..., X_T
 
-Fundamentals:
+and `period_outputs` contains the T transition outputs for t=1,...,T.
 
-    rho_theta
-    sigma_theta
-    v_bar
-    psi
+Randomness architecture:
 
-Signals / beliefs:
+    src/experiments/refined/seeding.py
+    src/experiments/refined/paired.py
 
-    sigma_s
-    sigma_b
-    alpha
+Semantic roles:
 
-Trading:
-
-    kappa
-    x_bar
-
-Market:
-
-    chi
-    lambda_price
-    sigma_p
-
-Reputation / attention:
-
-    gamma_R
-    beta
-    sigma_0
-
-Later extensions:
-
-    tau
-    heterogeneous beta_i
-    heterogeneous kappa_i
-    heterogeneous tau_i
-    heterogeneous signal precision
-
-Parameter validation should reject economically or mathematically invalid
-values before a simulation starts.
-
----
-
-# 15. Simulator Interface
-
-Proposed interface:
-
-    simulate(
-        parameters,
-        graph,
-        initial_state,
-        shock_path,
-        horizon,
-        attention_mode,
-    )
-
-The simulator must NOT generate hidden random shocks internally when a shock
-path has been supplied.
-
-This is necessary for paired experiments.
-
-The simulator should return:
-
-    state_history
-    period_outputs
-    metadata
-
----
-
-# 16. Randomness Architecture
-
-Randomness must be explicitly separated into:
-
+    replication_id
     graph_seed
     shock_seed
     initial_state_seed
     type_assignment_seed
 
-Do not use one ambiguous `seed` field for every source of randomness.
-
-A paired replication must be capable of using:
-
-    identical shock path
-    identical non-network initial conditions
-    identical parameter values
-
-across different topology classes.
-
-Graph draws remain topology-specific.
+Common random numbers are reused across topology treatments inside a paired replication.
 
 ---
 
-# 17. Required Tests Before Monte Carlo
+## 12. Section 5.3 benchmark graph implementation
 
-The following tests are mandatory before any large Iridis run:
+Report constraints around Eq. (191):
 
-    test_graph_attention_separation
-    test_attention_support_and_row_sums
-    test_uniform_attention
-    test_fundamental_update
-    test_private_signal_mapping
-    test_belief_update
-    test_belief_uses_lagged_attention
-    test_alpha_zero_removes_network_channel
-    test_desired_action_bounds
-    test_inventory_projection
-    test_position_limits
-    test_order_flow
-    test_price_equation
-    test_return_definition
-    test_profit_uses_lagged_position
-    test_reputation_update
-    test_attention_updates_after_reputation
-    test_full_one_period_transition
+    directed binary G
+    zero diagonal for benchmark generators
+    no duplicate directed edges
+    exactly K outgoing links per row
+    total links = N*K
 
-Then:
+Implementation:
 
-    deterministic multi-period integration test
+    src/topologies/refined/generators.py
 
-Then:
+Functions:
 
-    alpha = 0 topology-null test
+    generate_random_fixed_out_degree(...)
+    generate_small_world(...)
+    generate_hub_dominated(...)
 
-Only after these pass should large-scale experiments begin.
+Hub-dominated formation uses `d_j^in + a0` and applies Eq. (212) random relabelling after formation.
 
 ---
 
-# 18. Refined Topology Stage
+## 13. Equations (203)-(211): structural graph diagnostics
 
-After the core model passes its tests, create:
+Implementation:
 
-    src/topologies/refined/
+    src/topologies/refined/diagnostics.py
 
-Planned modules:
+Mapping:
 
-    random_fixed.py
-    small_world.py
-    hub_dominated.py
-    validation.py
-    attention_initialization.py
+    Eqs. (203)-(205)  in_degree_gini(...)
+    Eq. (206)         hub_link_share(...)
+    Eq. (208)         symmetrised_support(...)
+    Eq. (209)         global_clustering(...)
+    Eq. (210)         average_path_length_lcc(...)
+    Eq. (211)         largest_component_share(...)
 
-Critical rule:
+Bundle:
 
-    topology generator -> binary G
+    StructuralDiagnostics
+    diagnose_graph(...)
 
-NOT:
+Matched ensemble runner:
 
-    topology generator -> effective W
+    src/experiments/refined/structural.py
+    run_structural_ensemble(...)
 
-G defines feasible support.
-
-W is constructed separately conditional on G.
-
-The first-stage feasible graph remains fixed during each simulation.
-
----
-
-# 19. Refined Experiment Stage
-
-After topology validation:
-
-    src/experiments/refined/
-
-The confirmatory experiment will use paired/common-random-number
-replications.
-
-Within replication r:
-
-COMMON across topology classes:
-
-    behavioural parameters
-    market parameters
-    shock path
-    non-network initial states
-    horizon
-    thresholds
-    agent-type multiset, when heterogeneity is introduced
-
-TOPOLOGY-SPECIFIC:
-
-    graph realization
-    graph seed
-    graph-consistent initial W_0
-
-The graph-generating process is the treatment.
+D041 structural validation with 1000 graphs/topology has been completed successfully.
 
 ---
 
-# 20. Refined Metrics Stage
+## 14. Paired topology-treatment construction
 
-Planned modules:
+Implementation:
 
-    src/metrics/refined/market_outcomes.py
-    src/metrics/refined/action_covariance.py
-    src/metrics/refined/cid.py
-    src/metrics/refined/influence.py
-    src/metrics/refined/topology_diagnostics.py
+    src/experiments/refined/treatments.py
 
-Required separation:
+Objects:
 
-    market outcomes
-    mechanism diagnostics
-    operational threshold classification
-    formal mathematical stability
+    TopologySpecification
+    NonNetworkInitialConditions
+    PreparedTopologyTreatment
+    prepare_paired_treatments(...)
 
-Do not collapse these concepts into one variable.
+Construction:
+
+    paired replication plan
+        + topology-specific graph_seed
+        + topology specification
+        + common non-network initial conditions
+        -> G
+        -> uniform W_0(G)
+        -> RefinedState
+        -> simulation-ready treatment
+
+No simulation is run during treatment construction.
 
 ---
 
-# 21. Mechanism Stage
+## 15. Equations (231)-(238): evaluation sample and principal run outcomes
 
-The central empirical-computational chain to measure is:
+Current implementation:
 
-    structural opportunity
-        ->
-    realised influence
-        ->
-    attention concentration / overlap
-        ->
-    correlated actions
-        ->
-    aggregate order flow
-        ->
-    price response
+    src/experiments/refined/market_metrics.py
 
-Planned quantities include:
+Evaluation sample:
 
-    structural hub share
-    realised hub influence share
-    attention entropy
+    T_B = {B+1,...,T}
+
+Python alignment:
+
+    period_outputs[B:T]
+    states[B+1:T+1]
+
+Baseline report choice:
+
+    B = 0
+
+### Eq. (236): return volatility RV
+
+    return_volatility(...)
+
+Uses sample standard deviation with denominator `|T_B|-1`.
+
+### Eq. (237): RMS mispricing RMSM
+
+    rms_mispricing(...)
+
+Uses contemporaneous `p_t - v_t`.
+
+### Eq. (237): maximum absolute mispricing MAM
+
+    maximum_absolute_mispricing(...)
+
+### Eq. (238): mean absolute order flow per agent MAF
+
+    mean_absolute_order_flow_per_agent(...)
+
+Uses:
+
+    mean_t |F_t| / N
+
+not gross action volume.
+
+Bundle:
+
+    RunLevelMarketOutcomes
+    compute_run_level_market_outcomes(...)
+
+Status:
+
+    IMPLEMENTED; awaiting Iridis verification.
+
+---
+
+## 16. Equations (288)-(289): retained sensitivity outcomes
+
+Implementation in the same evaluation module:
+
+    Eq. (288) mean_absolute_return(...)
+    Eq. (289) time_averaged_belief_variance(...)
+
+Belief variance uses the population cross-sectional denominator N at each t and then averages across the evaluation sample.
+
+Status:
+
+    IMPLEMENTED; awaiting Iridis verification.
+
+---
+
+## 17. Equations (239)-(250): action covariance and CID
+
+Next staged implementation.
+
+Planned mapping:
+
+    Eqs. (239)-(240)
+        rolling average pairwise action covariance
+        exact rolling Var(F) decomposition
+
+    Eqs. (241)-(243)
+        rolling return volatility
+        rolling belief dispersion
+        RMS net-order-flow pressure
+
+    Eqs. (244)-(246)
+        fixed reference-scale standardisation
+        dimensionless CID
+
+    Eqs. (247)-(249)
+        threshold-exceedance indicator
+        peak CID
+        exceedance duration share
+
+    Eq. (250)
+        operational stabilisation with right-censoring
+
+Important design rule:
+
+    reference scales, thresholds, guardrails, L, and L_stab
+    must be fixed before topology evaluation
+
+and may not be chosen after observing topology rankings.
+
+---
+
+## 18. Equations (251)-(267): realised influence mechanisms
+
+Planned after/alongside CID implementation:
+
+    normalised attention entropy
     effective number of sources
+    network-average entropy / effective sources
+    realised influence column shares
     influence HHI
-    overlap
-    influence mobility
-    KL divergence
-    action covariance
-    Var(F_t)
-    net order-flow pressure
-    price mispricing
+    realised hub influence share
+    attention overlap
+    attention mobility
+    KL deviation from transition prior when the dynamic-attention extension is active
 
-A topology difference without the intermediate mechanism diagnostics is not
-sufficient for a strong mechanism claim.
+Likely implementation location:
+
+    src/experiments/refined/influence_metrics.py
+
+The current frictionless first-stage model does not yet use the Eq. (266)-(267) transition-prior KL term because attention inertia is deferred.
 
 ---
 
-# 22. Later Stages
+## 19. Mechanism chain
 
-Only after the refined fixed-topology mechanism is validated:
+The report's computational mechanism chain remains:
 
-## Endogenous formation
+    feasible topology G
+        -> realised W_t
+        -> influence concentration / overlap
+        -> action covariance
+        -> aggregate order flow
+        -> price response / mispricing
 
-    src/formation/
+A topology difference in volatility alone is insufficient for a strong mechanism claim.
 
-G_t becomes endogenous and may rewire.
+---
 
-## Formal stability
+## 20. Formal stability and later extensions
+
+Formal local stability is separate from simulation diagnostics.
+
+Later location:
 
     src/stability/
 
-Objects:
+Required objects:
 
-    equilibrium
-    full Jacobian J*
-    spectral radius
-    Lyapunov analysis
-    stability phase diagrams
+    equilibrium X*
+    complete Jacobian J*
+    spectral radius spr(J*)
+    Lyapunov equation / local stability analysis
 
-## Estimation
+Do not use the spectral radius of row-stochastic W as the market stability test.
 
-    src/estimation/
-
-Objects:
-
-    state-space model
-    observation equation
-    synthetic parameter recovery
-    EKF benchmark
-    real-data estimation
-    out-of-sample validation
-
-## Policy
-
-    src/policy/
-
-Planner interventions follow structural identification.
-
-MARL is optional and later.
+Endogenous G_t formation, EKF/state-space estimation, planner analysis, and optional MARL remain later stages.
 
 ---
 
-# 23. Implementation Gate
+## 21. Current implementation gate
 
-The current implementation stage is COMPLETE only when:
+Verified before market Monte Carlo:
 
-    Equations (35)-(82) are implemented,
-    one-period deterministic tests pass,
-    multi-period integration tests pass,
-    alpha=0 network-null test passes,
-    and the new model is clearly separated from all legacy environments.
+    core Eqs. (35)-(82)
+    deterministic one-period transition
+    deterministic multi-period transition
+    alpha=0 topology-null control
+    refined topology generators
+    structural graph diagnostics
+    paired treatment preparation
+    D041 structural ensemble separation
 
-Until then:
+Still required before large refined market Monte Carlo:
 
-    DO NOT submit a large refined-model Monte Carlo job.
+    verify run-level market outcome metrics
+    implement/verify rolling action covariance
+    implement/verify CID definitions
+    fix CID calibration inputs before topology evaluation
+    implement/verify required realised-influence mechanism metrics
 
+Large-scale computation must not substitute for these implementation gates.
