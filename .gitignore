@@ -53,3 +53,4 @@ results/**
 # Generated topology cache
 data/topology_cache/**
 !data/topology_cache/.gitkeep
+.venv/
