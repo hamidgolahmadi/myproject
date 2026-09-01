@@ -37,6 +37,7 @@ from .trading import (
     update_positions,
     valuation_gaps,
 )
+from .transition import transition_one_period
 
 __all__ = [
     "PeriodOutputs",
@@ -59,6 +60,7 @@ __all__ = [
     "realised_profits",
     "standardised_reputation_scores",
     "stationary_fundamental_variance",
+    "transition_one_period",
     "update_attention",
     "update_beliefs",
     "update_fundamental",
