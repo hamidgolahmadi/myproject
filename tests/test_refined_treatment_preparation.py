@@ -11,10 +11,10 @@ from src.experiments.refined import (
     prepare_paired_replication,
     prepare_paired_treatments,
 )
-from src.model.refined import RefinedParameters
+from src.model.refined import RefinedParameters, simulate_shock_path
 
 
-def parameters() -> RefinedParameters:
+def parameters(*, alpha: float = 0.25) -> RefinedParameters:
     return RefinedParameters(
         rho_theta=0.8,
         sigma_theta=0.2,
@@ -22,7 +22,7 @@ def parameters() -> RefinedParameters:
         psi=1.0,
         sigma_s=0.3,
         sigma_b=0.1,
-        alpha=0.25,
+        alpha=alpha,
         kappa=0.7,
         x_bar=2.0,
         chi=0.15,
@@ -52,14 +52,16 @@ def initial_conditions(n_agents: int = 8, *, position: float = 0.0) -> NonNetwor
     )
 
 
-def plan(n_agents: int = 8):
+def plan(n_agents: int = 8, *, parameter_object: RefinedParameters | None = None):
+    if parameter_object is None:
+        parameter_object = parameters()
     return prepare_paired_replication(
         experiment_seed=12345,
         replication_id=7,
         topology_labels=("R", "SW", "SF"),
         n_periods=5,
         n_agents=n_agents,
-        parameters=parameters(),
+        parameters=parameter_object,
     )
 
 
@@ -261,6 +263,49 @@ def test_preparation_is_reproducible():
         assert left.graph_seed == right.graph_seed
         np.testing.assert_array_equal(left.graph, right.graph)
         np.testing.assert_array_equal(left.initial_state.attention, right.initial_state.attention)
+
+
+def test_alpha_zero_control_holds_across_generated_paired_treatments():
+    zero_parameters = parameters(alpha=0.0)
+    paired_plan = plan(parameter_object=zero_parameters)
+    treatments = prepare_paired_treatments(
+        plan=paired_plan,
+        specifications=specifications(),
+        initial_conditions=initial_conditions(),
+        parameters=zero_parameters,
+    )
+
+    results = [
+        simulate_shock_path(
+            treatment.initial_state,
+            treatment.shock_path,
+            treatment.graph,
+            treatment.parameters,
+        )
+        for treatment in treatments
+    ]
+
+    reference = results[0]
+    for result in results[1:]:
+        assert result.n_periods == reference.n_periods
+
+        for reference_state, state in zip(reference.states, result.states):
+            assert state.theta == pytest.approx(reference_state.theta)
+            assert state.price == pytest.approx(reference_state.price)
+            np.testing.assert_allclose(state.beliefs, reference_state.beliefs)
+            np.testing.assert_allclose(state.positions, reference_state.positions)
+            np.testing.assert_allclose(state.reputation, reference_state.reputation)
+
+        for reference_output, output in zip(reference.period_outputs, result.period_outputs):
+            assert output.fundamental_value == pytest.approx(reference_output.fundamental_value)
+            assert output.net_order_flow == pytest.approx(reference_output.net_order_flow)
+            assert output.return_ == pytest.approx(reference_output.return_)
+            np.testing.assert_allclose(output.signals, reference_output.signals)
+            np.testing.assert_allclose(output.perceived_values, reference_output.perceived_values)
+            np.testing.assert_allclose(output.valuation_gaps, reference_output.valuation_gaps)
+            np.testing.assert_allclose(output.desired_actions, reference_output.desired_actions)
+            np.testing.assert_allclose(output.actions, reference_output.actions)
+            np.testing.assert_allclose(output.profits, reference_output.profits)
 
 
 @pytest.mark.parametrize(
