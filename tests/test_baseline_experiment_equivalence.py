@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 
 from src.experiments.baseline import run_one_topology
 from src.topologies.random_network import build_P_random_fixed
@@ -14,7 +15,7 @@ from src.topologies.random_network import build_P_random_fixed
 # Load legacy baseline script
 # -------------------------------------------------------------------------
 
-legacy_path = Path("02_run_baseline_no_policy_v2.py")
+legacy_path = Path("archive/legacy/02_run_baseline_no_policy_v2.py")
 
 spec = importlib.util.spec_from_file_location(
     "legacy_baseline",
@@ -85,7 +86,10 @@ if list(old_df.columns) != list(new_df.columns):
 
 for column in old_df.columns:
 
-    if old_df[column].dtype == object:
+    if not (
+        is_numeric_dtype(old_df[column].dtype)
+        and is_numeric_dtype(new_df[column].dtype)
+    ):
 
         if not old_df[column].equals(
             new_df[column]

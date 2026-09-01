@@ -14,7 +14,7 @@ from src.metrics.stability_metrics import (
 
 
 # Load the legacy baseline script.
-legacy_path = Path("02_run_baseline_no_policy_v2.py")
+legacy_path = Path("archive/legacy/02_run_baseline_no_policy_v2.py")
 spec = importlib.util.spec_from_file_location("legacy_baseline", legacy_path)
 legacy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(legacy)
