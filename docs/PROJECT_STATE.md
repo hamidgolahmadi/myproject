@@ -69,6 +69,7 @@ Refined topology layer:
     src/topologies/refined/
         __init__.py
         generators.py
+        diagnostics.py
 
 Legacy files outside these refined namespaces must not override the report.
 
@@ -177,19 +178,16 @@ Small-World begins from the directed ring lattice and rewires outgoing edges
 while preserving K. Hub-dominated uses attachment weight
 `in_degree_j + a0`, `a0 > 0`.
 
-After the 166-test Iridis checkpoint, the hub-dominated generator was further
-aligned with Equation (212): formation and node relabelling now use separate
-child RNG streams derived from `graph_seed`, and the completed hub graph is
-randomly relabelled so arbitrary numerical node labels are not mechanically
-attached to hub positions.
-
-This relabelling change is committed but awaits the next Iridis verification.
+The hub-dominated generator also implements the report's Equation (212)
+post-formation random relabelling using a graph-seed-derived child stream, so
+arbitrary numerical node labels are not mechanically attached to hub positions.
+This correction was re-verified in the 199-test checkpoint.
 
 ---
 
 ## 8. Explicit Neutral Initial Attention
 
-NEWLY IMPLEMENTED in:
+Implemented and VERIFIED on Iridis in:
 
     src/model/refined/attention.py
 
@@ -201,13 +199,11 @@ It implements Equations (41), (225)-(226): every feasible source in row i
 receives weight `1 / d_i`; unsupported entries receive zero. For benchmark
 graphs with fixed out-degree K, every supported initial weight is `1 / K`.
 
-Three direct tests were added.
-
 ---
 
 ## 9. Paired Topology Treatment Construction
 
-NEWLY IMPLEMENTED in:
+Implemented and VERIFIED on Iridis in:
 
     src/experiments/refined/treatments.py
 
@@ -230,14 +226,9 @@ The construction is:
             -> RefinedState
             -> PreparedTopologyTreatment
 
-Each prepared treatment is simulation-ready and contains:
-
-    topology specification
-    graph seed
-    generated G
-    initial RefinedState
-    common realised shock path
-    common parameter object
+Each prepared treatment is simulation-ready and contains the topology
+specification, graph seed, generated G, initial RefinedState, common realised
+shock path, and common parameter object.
 
 The treatment builder performs NO random sampling of non-network initial
 conditions and runs NO simulation.
@@ -249,38 +240,90 @@ a neutral rule for some components: positions and reputation may start at zero,
 `theta_0` may be drawn from its stationary distribution, and `W_0(G)` is
 uniform on feasible support.
 
-However, the report does not uniquely fix numerical rules for every component,
+The report does not uniquely fix numerical rules for every component,
 especially `b_0` and `p_0`. Therefore the current treatment builder does not
 silently invent values such as `b_0 = theta_0 1` or `p_0 = v_0`.
 
 Instead, `NonNetworkInitialConditions` is supplied explicitly and identically
-to all paired topology treatments. The already-reserved `initial_state_seed`
-remains unused until an explicit initial-condition generation rule is adopted
-and documented.
+to all paired topology treatments. The reserved `initial_state_seed` remains
+unused until an explicit initial-condition generation rule is adopted and
+documented.
 
 ---
 
 ## 10. Generated-Treatment Negative Control
 
-A new end-to-end integration test constructs actual Random, Small-World, and
+VERIFIED on Iridis in the 199-test checkpoint.
+
+The end-to-end integration test constructs actual Random, Small-World, and
 hub-dominated treatments from the paired plan and runs them with `alpha = 0`.
 
-Required result:
+Verified equal across topology treatments:
 
-- theta paths equal;
-- beliefs equal;
-- positions/actions equal;
-- net order flow equal;
-- prices/returns equal;
-- profits/reputations equal;
+- theta paths;
+- beliefs;
+- positions/actions;
+- net order flow;
+- prices/returns;
+- profits/reputations.
 
-while graph-supported attention and reputation-score matrices are allowed to
-differ because the graphs differ. This is the report-defined network-null
-control on the full generated-treatment pipeline.
+Graph-supported attention and reputation-score matrices may differ because the
+graphs differ, but with `alpha=0` they have no causal route into the market
+outcomes.
 
 ---
 
-## 11. Verified Test Checkpoints
+## 11. Structural Graph Diagnostics
+
+NEWLY IMPLEMENTED under:
+
+    src/topologies/refined/diagnostics.py
+
+The implementation follows Section 5.3.1, Equations (203)-(211), and is kept
+strictly separate from market outcomes and from effective attention `W_t`.
+
+Implemented functions:
+
+    in_degrees(G)
+    in_degree_gini(G)
+    hub_link_share(G, q)
+    symmetrised_support(G)
+    global_clustering(G)
+    largest_component_share(G)
+    average_path_length_lcc(G)
+    diagnose_graph(G, q=q)
+    diagnose_ensemble(graphs, q=q)
+
+and the diagnostic record:
+
+    StructuralDiagnostics
+
+Definitions:
+
+- in-degree is the directed column sum of `G`;
+- in-degree Gini follows Equations (203)-(205);
+- hub share is the share of all incoming links received by the top-q realised
+  in-degree nodes, Equation (206);
+- clustering and path/component diagnostics use only the symmetrised support
+  `G^u`, Equation (208), and do NOT change the directed economic model;
+- global clustering is transitivity, Equation (209);
+- average path length is computed only within the largest connected component,
+  Equation (210);
+- largest-component share is `n_max / N`, Equation (211).
+
+The diagnostics layer deliberately does NOT hard-code the qualitative claim
+that SF must always have higher concentration or SW must always have higher
+clustering. The report states these are ensemble-level design expectations,
+not theorems for every finite graph draw. Actual structural separation must be
+checked empirically on generated ensembles before market differences are
+interpreted.
+
+Twenty direct test cases with hand-checkable graph examples are committed but
+AWAIT IRIDIS verification.
+
+---
+
+## 12. Verified Test Checkpoints
 
 Verified on Iridis:
 
@@ -295,28 +338,25 @@ Verified on Iridis:
     115 passed  + shock-path generation + CRN tests
     138 passed  + semantic paired replication design
     166 passed  + refined benchmark topology generators
+    199 passed  + W_0 + paired treatments + generated alpha=0 control
 
 Latest verified checkpoint:
 
-    166 passed in 1.56s
+    199 passed in 1.87s
 
 with a clean working tree and branch up to date with `origin/refined-model`.
 
-New changes after that checkpoint add:
+New structural-diagnostic tests added after that checkpoint:
 
-    3 test cases   explicit uniform W_0(G)
-    29 test cases  paired treatment construction/validation
-    1 test case    generated R/SW/SF alpha=0 end-to-end control
+    20 test cases
 
 Expected next refined total:
 
-    199 passed
-
-The 199-test checkpoint has NOT yet been verified on Iridis.
+    219 passed
 
 ---
 
-## 12. Computational Milestones
+## 13. Computational Milestones
 
 Milestone 1 — deterministic one-period transition: VERIFIED
 
@@ -328,18 +368,21 @@ Milestone 4 — explicit shock-path generation / CRN: VERIFIED
 
 Milestone 5 — semantic paired replication plan: VERIFIED
 
-Milestone 6 — refined benchmark topology generators: VERIFIED at 166 tests;
-additional Eq. (212) hub relabelling awaits re-verification
+Milestone 6 — refined benchmark topology generators + Eq. (212) relabelling:
+VERIFIED
 
-Milestone 7 — paired topology treatment construction:
+Milestone 7 — paired topology treatment construction + generated-treatment
+alpha=0 control: VERIFIED
+
+Milestone 8 — report-defined structural graph diagnostics:
 
     IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
 
-No large refined Monte Carlo experiment should be submitted yet.
+No large refined market Monte Carlo experiment should be submitted yet.
 
 ---
 
-## 13. Immediate Next Step
+## 14. Immediate Next Step
 
 NEXT STEP:
 
@@ -350,31 +393,31 @@ NEXT STEP:
 
 3. Expected total:
 
-       199 passed
+       219 passed
 
-4. If all 199 pass, record Milestone 7 as VERIFIED and the Equation (212)
-   hub-relabel change as re-verified.
-5. Then implement structural graph diagnostics required by Section 5.3.1 before
-   running market-outcome Monte Carlo comparisons. At minimum begin with:
+4. If all 219 pass, record Milestone 8 as VERIFIED.
+5. Then build a small, explicit structural-validation runner that generates
+   graph ensembles only (no market simulation) and reports the distributions
+   of:
 
-       in-degree distribution
        in-degree Gini
-       structural hub share
-       clustering
-       component structure
-       average path length on the largest connected component
+       top-q hub link share
+       global clustering
+       largest-component average path length
+       largest-component share
 
-6. Validate that the generated ensembles exhibit the intended structural
-   separation before interpreting any topology outcome difference.
+   for matched Random, Small-World, and hub-dominated ensembles.
+6. Use that structural-only runner to verify the intended architectural
+   separation before any topology market-outcome comparison is interpreted.
 
-Do not start a large Monte Carlo run yet.
+Do not start a large market Monte Carlo run yet.
 
 ---
 
-## 14. Planned Development Sequence
+## 15. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model, Equations (35)-(82)   COMPLETE
-    Phase 2  Refined binary topology generators, G separated from W   COMPLETE/VERIFYING
+    Phase 2  Refined binary topology generators, G separated from W   COMPLETE
     Phase 3  Deterministic integration and multi-period tests         COMPLETE
     Phase 4  Paired fixed-topology Monte Carlo design                 IN PROGRESS
     Phase 5  Refined market metrics and CID
@@ -388,7 +431,7 @@ Do not start a large Monte Carlo run yet.
 
 ---
 
-## 15. New-Chat Handoff Prompt
+## 16. New-Chat Handoff Prompt
 
 When starting a new conversation:
 
