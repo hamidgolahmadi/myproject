@@ -55,8 +55,8 @@ At the beginning of an Iridis session use:
 `unset PYTHONPATH` is mandatory because the Iridis Python module injects a
 system PYTHONPATH that can contaminate the project virtual environment.
 
-`pytest==9.1.1` is now recorded in `requirements.txt` and installed in the
-current `.venv` used for refined-model verification.
+`pytest==9.1.1` is recorded in `requirements.txt` and installed in the current
+`.venv` used for refined-model verification.
 
 `nano` has segfaulted on Iridis; prefer heredocs for direct terminal edits.
 
@@ -115,18 +115,21 @@ The following decisions remain binding:
 - First confirmatory implementation is homogeneous.
 - Random-number generation remains outside economic transition logic; realised
   shocks are supplied explicitly.
+- Paired confirmatory experiments reuse the same shock path and non-network
+  initial conditions across topology treatments.
+- Random seeds have semantic roles; do not use one ambiguous generic `seed`.
 - Formal stability later uses the complete equilibrium Jacobian, not the
   spectral radius of `W`.
 
 ---
 
-## 6. Implemented Refined Equations
+## 6. Implemented Refined Core
 
 ### Structural objects: Equations (35)-(41)
 
 Implemented and tested:
 
-- `RefinedParameters` with first-stage homogeneous parameter validation;
+- `RefinedParameters` with homogeneous first-stage validation;
 - `RefinedState(theta, beliefs, positions, price, reputation, attention)`;
 - `PeriodOutputs` for within-period diagnostics;
 - binary graph validation and neighbourhood construction;
@@ -150,7 +153,7 @@ Implemented and tested:
 - homogeneous belief-noise covariance;
 - lagged private-social update
   `b_t = (1-alpha)s_t + alpha W_{t-1}b_{t-1} + epsilon_b,t`;
-- `alpha=0` network-null behaviour at the belief block.
+- `alpha=0` network-null behaviour.
 
 ### Reputation-sensitive attention: Equations (57)-(60)
 
@@ -186,7 +189,9 @@ Implemented and tested:
 
 ### Canonical transition: Equations (39), (80)-(82)
 
-Implemented in `src/model/refined/transition.py`:
+Implemented and VERIFIED on Iridis in `src/model/refined/transition.py`.
+
+`transition_one_period(...)` follows exactly:
 
     theta_t, v_t, s_t
         -> b_t using W_{t-1}
@@ -203,15 +208,46 @@ Implemented in `src/model/refined/transition.py`:
         -> z_t
         -> W_t
 
-`transition_one_period(...)` is pure with respect to the inherited state and
-shock bundle. It supports:
+It supports adaptive end-of-period attention and
+`adaptive_attention=False` for the fixed-influence benchmark.
 
-- adaptive end-of-period attention; and
-- `adaptive_attention=False` for the fixed-influence benchmark, which carries
-  inherited valid attention forward unchanged.
+### Deterministic multi-period simulator
 
-Eight end-to-end transition tests have been added but have NOT yet been run on
-Iridis at this checkpoint.
+Implemented and VERIFIED on Iridis in `src/model/refined/simulator.py`.
+
+`simulate_shock_path(...)`:
+
+- contains no duplicate economic equations;
+- repeatedly calls `transition_one_period(...)`;
+- consumes an explicit finite sequence of `PeriodShocks`;
+- stores `T+1` persistent states and `T` within-period outputs;
+- supports adaptive and fixed-attention modes.
+
+The multi-period `alpha=0` network-null test is also VERIFIED.
+
+### Shock-path generation
+
+NEWLY IMPLEMENTED in `src/model/refined/shocks.py`:
+
+    generate_shock_path(...)
+
+It takes explicit semantic input:
+
+    shock_seed
+
+and spawns independent child RNG streams for:
+
+    fundamental innovations
+    private-signal innovations
+    belief-processing innovations
+    price innovations
+
+It generates the path once per replication for reuse unchanged across paired
+topology treatments. It does not use `graph_seed`, `initial_state_seed`, or any
+other source of randomness.
+
+The new shock-generation / CRN tests are committed but AWAIT IRIDIS
+verification.
 
 ---
 
@@ -219,98 +255,110 @@ Iridis at this checkpoint.
 
 The following refined checkpoints have been run successfully on Iridis:
 
-    21 passed  state + parameters
-    30 passed  + fundamentals + shocks
-    40 passed  + beliefs
-    51 passed  + trading
-    66 passed  + market + reputation
-    82 passed  + adaptive attention
+    21 passed   state + parameters
+    30 passed   + fundamentals + shocks
+    40 passed   + beliefs
+    51 passed   + trading
+    66 passed   + market + reputation
+    82 passed   + adaptive attention
+    90 passed   + one-period transition integration
+    100 passed  + deterministic multi-period simulator + alpha=0 null test
 
 Latest verified checkpoint:
 
-    82 passed in 1.42s
+    100 passed in 1.47s
 
-with a clean working tree before the transition implementation was pulled.
+with:
 
-The newly added transition tests still require Iridis verification.
+    git status
+
+clean and branch up to date with `origin/refined-model`.
 
 ---
 
-## 8. Immediate Next Step
+## 8. Computational Milestones
+
+### Milestone 1 — deterministic one-period transition
+
+Status:
+
+    VERIFIED
+
+### Milestone 2 — deterministic multi-period simulator
+
+Status:
+
+    VERIFIED
+
+### Milestone 3 — multi-period alpha=0 network-null test
+
+Status:
+
+    VERIFIED
+
+Under common supplied shocks and identical non-network initial conditions,
+changing topology does not change beliefs, actions, order flow, prices,
+profits, or reputation when `alpha=0`. Graph-supported attention matrices may
+differ but their social channel is causally inactive.
+
+These core validation gates are now complete.
+
+---
+
+## 9. Immediate Next Step
 
 NEXT STEP:
 
 1. Pull the latest `refined-model` branch on Iridis.
-2. Run the complete refined unit/integration set including
-   `tests/test_refined_transition.py`.
-3. Expected total if the transition integration is correct:
+2. Run the complete refined test set including
+   `tests/test_refined_shock_generation.py`.
+3. Expected total:
 
-       90 passed
+       115 passed
 
-4. If all 90 tests pass, implement the second computational milestone:
-   a small deterministic multi-period simulator in
-   `src/model/refined/simulator.py` using an explicit supplied shock path.
-5. Add multi-period timing/state-history tests before any Monte Carlo work.
-6. Then strengthen the `alpha=0` paired network-null test across multiple
-   periods.
+4. If all 115 pass, record the shock-generation checkpoint as verified.
+5. Then implement the next experiment-design layer without starting a large
+   Monte Carlo run:
 
-Do not start large topology experiments or Monte Carlo runs yet.
+       semantic replication seed plan
+       + paired common-random-number replication preparation
 
----
+   with distinct roles for at least:
 
-## 9. Computational Milestones
+       replication_id
+       graph_seed
+       shock_seed
+       initial_state_seed
+       type_assignment_seed
 
-### Milestone 1 — deterministic one-period transition
+6. Keep common across topology treatments within a replication:
 
-Current status:
+       shock path
+       non-network initial state
+       behavioural parameters
+       market parameters
+       horizon
+       evaluation definitions
 
-    IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
+7. Allow topology-specific:
 
-Acceptance requirements include:
+       graph realization
+       graph seed
+       graph-supported W_0
 
-- exact Equation (39) ordering;
-- `W_{t-1}` affects current beliefs;
-- `W_t` cannot affect current beliefs;
-- inventory bounds hold;
-- signed order flow is used;
-- price includes the fundamental anchor;
-- profit uses `x_{t-1}`;
-- end-of-period `W_t` is carried only into the next state.
-
-### Milestone 2 — deterministic multi-period simulator
-
-Current status:
-
-    NOT YET IMPLEMENTED
-
-It must consume explicit period shocks, preserve state histories, and call the
-canonical one-period transition rather than duplicate the equations.
-
-### Milestone 3 — multi-period alpha=0 network-null test
-
-Current status:
-
-    NOT YET IMPLEMENTED
-
-Under paired common shocks and identical non-network initial conditions,
-changing topology must not change beliefs, actions, order flow, prices,
-profits, or reputation when `alpha=0`, up to numerical tolerance. The next
-period attention matrices may differ by graph support, but that channel must
-remain causally inactive while `alpha=0`.
-
-Only after these milestones pass should confirmatory topology experiments be
-run.
+Do not start large topology experiments yet. Refined topology-generation and
+paired-replication infrastructure should be explicit and tested first.
 
 ---
 
 ## 10. Planned Development Sequence
 
-    Phase 1  Refined fixed-topology core model, Equations (35)-(82)
+    Phase 1  Refined fixed-topology core model, Equations (35)-(82)   COMPLETE
     Phase 2  Refined binary topology generators, G separated from W
-    Phase 3  Deterministic integration and multi-period tests
+    Phase 3  Deterministic integration and multi-period tests         COMPLETE
     Phase 4  Paired fixed-topology Monte Carlo design
     Phase 5  Refined market metrics and CID
-    Phase 6  Influence / overlap / action-covariance mechanism diagnostics
+    Phase 6  Influence / overlap / action-covariance diagnostics
     Phase 7  alpha / beta / gamma_R experiments and heterogeneity
     Phase 8  Endogenous feasible-network formation and rewiring
     Phase 9  Full equilibrium Jacobian, spectral radius, Lyapunov analysis
@@ -335,6 +383,7 @@ A refined implementation is accepted only when:
 - return conventions are internally consistent;
 - `alpha=0` removes the network-propagation channel;
 - random shocks and seeds are explicitly separated by purpose;
+- paired topology comparisons use common random numbers correctly;
 - deterministic tests pass before large simulations are submitted.
 
 Historical equivalence with pilot code is not an acceptance criterion.
