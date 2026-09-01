@@ -1,4 +1,4 @@
-"""Graph-supported reputation-sensitive attention for Equations (57)-(60)."""
+"""Graph-supported attention rules for Equations (41) and (57)-(60)."""
 
 from __future__ import annotations
 
@@ -28,6 +28,25 @@ def _nonnegative_finite(name: str, value: float) -> float:
     if not np.isfinite(value) or value < 0.0:
         raise ValueError(f"{name} must be finite and non-negative")
     return value
+
+
+def uniform_attention_from_graph(graph: np.ndarray) -> np.ndarray:
+    """Return neutral graph-supported attention from Equations (41), (225)-(226).
+
+    Each agent allocates equal initial attention to every feasible information
+    source in its own row of ``G``.  The rule works for any valid graph with at
+    least one feasible source per row; in the fixed-out-degree benchmark it
+    reduces to weight ``1 / K`` on every supported edge.
+    """
+
+    graph_array = validate_graph_support(graph)
+    neighbourhoods, degrees = build_neighbourhoods(graph_array)
+    attention = np.zeros(graph_array.shape, dtype=float)
+
+    for i, neighbours in enumerate(neighbourhoods):
+        attention[i, neighbours] = 1.0 / degrees[i]
+
+    return validate_attention(attention, graph_array)
 
 
 def local_reputation_statistics(
