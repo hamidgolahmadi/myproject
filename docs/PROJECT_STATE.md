@@ -31,8 +31,7 @@ At the beginning of an Iridis session:
     git switch refined-model
     git status
 
-`unset PYTHONPATH` remains mandatory because the Iridis Python module injects a
-system PYTHONPATH.
+`unset PYTHONPATH` remains mandatory because the Iridis Python module injects a system PYTHONPATH.
 
 ---
 
@@ -71,7 +70,7 @@ Refined topology layer:
         generators.py
         diagnostics.py
 
-Refined structural-validation driver:
+Structural-validation driver:
 
     scripts/run_refined_structural_validation.py
 
@@ -79,43 +78,27 @@ Refined structural-validation driver:
 
 ## 4. Binding Scientific Decisions
 
-See `docs/DECISIONS.md` for the full register. Important frozen points include:
+See `docs/DECISIONS.md` for the full register. Key frozen points:
 
-- `G` is the directed binary feasible-information graph; `W_t` is separate
-  graph-supported effective attention.
-- current beliefs use inherited `W_{t-1}`;
-- desired and executed trades are distinct;
-- `F_t` is signed net order flow;
-- price includes fundamental correction and order-flow impact;
-- profit uses inherited position;
-- first adaptive attention is frictionless reputation-sensitive softmax;
-- `alpha=0` is the mandatory network-propagation negative control;
-- paired topology treatments share shocks and non-network initial conditions,
-  while graph randomness is topology-specific;
-- formal stability later uses the complete equilibrium Jacobian, not the
-  spectral radius of `W`.
-
-New Decision D041 fixes the first structural-validation calibration.
+- `G` is the directed binary feasible-information graph; `W_t` is separate graph-supported effective attention.
+- Current beliefs use inherited `W_{t-1}`.
+- Desired and executed trades are distinct.
+- `F_t` is signed net order flow.
+- Price includes fundamental correction and order-flow impact.
+- Profit uses inherited position.
+- First adaptive attention is frictionless reputation-sensitive softmax.
+- `alpha=0` is the mandatory network-propagation negative control.
+- Paired topology treatments share shocks and non-network initial conditions while graph randomness is topology-specific.
+- Formal stability later uses the complete equilibrium Jacobian, not the spectral radius of `W`.
+- D041 freezes the first structural-validation calibration.
 
 ---
 
 ## 5. Verified Refined Core
 
-The fixed-topology runtime for Equations (35)-(82) is implemented and VERIFIED:
+The fixed-topology runtime for Equations (35)-(82) is implemented and VERIFIED, including parameters/state, fundamentals/signals, lagged beliefs, adaptive attention, bounded/inventory-constrained trading, order flow, price, return, profit, reputation, the canonical one-period transition, deterministic multi-period simulation, and explicit shock-path generation.
 
-- parameters/state;
-- graph/attention validation;
-- fundamentals/signals;
-- lagged belief updating;
-- adaptive attention;
-- valuation/trading/inventory/order flow;
-- price/return/profit/reputation;
-- canonical one-period transition;
-- deterministic multi-period simulation;
-- explicit shock-path generation with separated RNG streams.
-
-The simulator contains no duplicate economic equations; it repeatedly calls
-`transition_one_period(...)`.
+The simulator contains no duplicate economic equations; it repeatedly calls `transition_one_period(...)`.
 
 ---
 
@@ -131,12 +114,9 @@ Implemented and VERIFIED:
     PreparedTopologyTreatment
     prepare_paired_treatments(...)
 
-Semantic seed derivation lives in:
+Semantic seed derivation lives in `src/experiments/refined/seeding.py`.
 
-    src/experiments/refined/seeding.py
-
-The generated R/SW/SF `alpha=0` end-to-end negative control is VERIFIED: graph
-and attention objects may differ, but all downstream economic paths coincide.
+The generated R/SW/SF `alpha=0` end-to-end negative control is VERIFIED: graph and attention objects may differ, but all downstream economic paths coincide.
 
 ---
 
@@ -148,11 +128,9 @@ Implemented and VERIFIED:
     generate_small_world(...)
     generate_hub_dominated(...)
 
-All benchmark graphs are directed, simple, zero-diagonal, exactly `K`
-outgoing links per row, and `N*K` total links.
+All benchmark graphs are directed, simple, zero-diagonal, exactly `K` outgoing links per row, and `N*K` total links.
 
-The hub-dominated generator uses attachment proportional to
-`in_degree_j + a0` and applies Equation (212) post-formation node relabelling.
+The hub-dominated generator uses attachment proportional to `in_degree_j + a0` and applies Equation (212) post-formation node relabelling.
 
 ---
 
@@ -170,36 +148,17 @@ Implemented and VERIFIED under `src/topologies/refined/diagnostics.py`:
     diagnose_graph(G, q=q)
     diagnose_ensemble(graphs, q=q)
 
-These follow Section 5.3.1, Equations (203)-(211). Concentration measures use
-directed `G`; clustering/path/component measures use diagnostic-only
-symmetrised support `G^u`.
+These follow Section 5.3.1, Equations (203)-(211). Concentration measures use directed `G`; clustering/path/component measures use diagnostic-only symmetrised support `G^u`.
 
 ---
 
 ## 9. Verified Structural-Only Ensemble Runner
 
-Implemented and VERIFIED in:
+Implemented and VERIFIED in `src/experiments/refined/structural.py`.
 
-    src/experiments/refined/structural.py
+It generates graph ensembles only, uses the same semantic graph-seed mapping as later paired market runs, preserves graph-level records, computes Section 5.3.1 diagnostics, and provides descriptive summaries without discarding raw observations.
 
-Objects/functions:
-
-    StructuralEnsembleRecord
-    DistributionSummary
-    TopologyStructuralSummary
-    StructuralEnsembleResult
-    run_structural_ensemble(...)
-
-The runner:
-
-- generates graph ensembles only;
-- uses the same semantic graph-seed mapping as later paired market runs;
-- preserves graph-level records;
-- computes Section 5.3.1 diagnostics;
-- supplies descriptive summaries without discarding raw observations;
-- does not generate shocks, market states, `W_t`, or market outcomes.
-
-This layer was verified at the 247-test Iridis checkpoint.
+It does not generate shocks, market states, `W_t`, or market outcomes.
 
 ---
 
@@ -217,43 +176,31 @@ FROZEN FOR THE FIRST STRUCTURAL VALIDATION RUN:
 
 Provenance:
 
-- `N=100`, `K=6`, and 1000 graph realisations per topology match the report's
-  retained first-stage baseline scale.
-- `q=5` is the top-five / five-percent hub-share convention used in the report
-  worked example and legacy structural diagnostic.
-- `p_sw=0.02` comes from the legacy extreme structural-validation pipeline;
-  the report specifies a small positive rewiring probability but no unique
-  numerical calibration.
-- `a0=1.0` is consistent with the report's illustration and with the legacy
-  unit initial-attractiveness linear preferential-attachment baseline; the
-  report itself requires only `a0>0`.
-- the experiment seed is a reproducibility namespace only.
+- `N=100`, `K=6`, and 1000 graph realisations per topology match the report's retained first-stage baseline scale.
+- `q=5` is the top-five / five-percent hub-share convention used in the report worked example and legacy structural diagnostic.
+- `p_sw=0.02` comes from the legacy extreme structural-validation pipeline; the report specifies a small positive rewiring probability but no unique numerical calibration.
+- `a0=1.0` is consistent with the report's illustration and the legacy unit-attractiveness linear preferential-attachment baseline; the report itself requires only `a0>0`.
+- The experiment seed is a reproducibility namespace only.
 
-These are explicit calibration choices, not model equations. If the intended
-ensemble separation fails, recalibration must be documented rather than
-silently tuned.
+These are explicit calibration choices, not model equations. If intended ensemble separation fails, recalibration must be documented rather than silently tuned.
 
-The canonical code object is:
+Canonical object:
 
     StructuralValidationCalibration
     first_structural_validation_calibration()
-
-in:
-
-    src/experiments/refined/calibration.py
 
 ---
 
 ## 11. Structural Output Persistence and Driver
 
-NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION.
+Implemented and VERIFIED on Iridis.
 
-Output writer:
+Writer:
 
     src/experiments/refined/structural_io.py
     write_structural_result(...)
 
-It writes:
+Outputs:
 
     structural_graph_records.csv
     structural_summary.csv
@@ -265,16 +212,15 @@ Driver:
 
     scripts/run_refined_structural_validation.py
 
-With no scientific overrides it executes D041. A reduced `--n-replications`
-argument exists only for smoke/testing. The default output directory is:
+With no scientific overrides it executes D041. A reduced `--n-replications` argument exists only for smoke/testing.
+
+Default output directory:
 
     results/refined/structural_validation/
 
-The real D041 run command will be:
+Canonical real-run command:
 
     python scripts/run_refined_structural_validation.py
-
-but only after the new calibration/output/CLI tests pass on Iridis.
 
 ---
 
@@ -296,46 +242,30 @@ Verified on Iridis:
     199 passed  + W_0 + paired treatments + generated alpha=0 control
     219 passed  + report-defined structural diagnostics
     247 passed  + structural-only ensemble runner + shared seed mapping
+    261 passed  + frozen structural calibration + output persistence + CLI smoke
 
 Latest verified checkpoint:
 
-    247 passed in 2.29s
+    261 passed in 4.75s
 
 with a clean working tree and branch up to date with `origin/refined-model`.
-
-New calibration/output/CLI tests:
-
-    14 test cases
-
-Expected next refined total:
-
-    261 passed
 
 ---
 
 ## 13. Computational Milestones
 
-Milestone 1 — deterministic one-period transition: VERIFIED
+Milestones 1-10 are VERIFIED:
 
-Milestone 2 — deterministic multi-period simulator: VERIFIED
-
-Milestone 3 — multi-period alpha=0 network-null test: VERIFIED
-
-Milestone 4 — explicit shock-path generation / CRN: VERIFIED
-
-Milestone 5 — semantic paired replication plan: VERIFIED
-
-Milestone 6 — refined benchmark topology generators + Eq. (212): VERIFIED
-
-Milestone 7 — paired treatment construction + generated alpha=0 control: VERIFIED
-
-Milestone 8 — structural graph diagnostics, Eqs. (203)-(211): VERIFIED
-
-Milestone 9 — structural-only matched ensemble runner: VERIFIED
-
-Milestone 10 — frozen structural calibration + persistent output driver:
-
-    IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
+1. deterministic one-period transition
+2. deterministic multi-period simulator
+3. multi-period alpha=0 network-null test
+4. explicit shock-path generation / CRN
+5. semantic paired replication plan
+6. refined benchmark topology generators + Eq. (212)
+7. paired treatment construction + generated alpha=0 control
+8. structural graph diagnostics, Eqs. (203)-(211)
+9. structural-only matched ensemble runner
+10. frozen structural calibration + persistent output driver
 
 No large refined market Monte Carlo should be submitted yet.
 
@@ -343,35 +273,29 @@ No large refined market Monte Carlo should be submitted yet.
 
 ## 14. Immediate Next Step
 
-1. Pull latest `refined-model` on Iridis.
-2. Run:
+Run the actual D041 structural-only validation on Iridis:
 
-       python -m pytest -q tests/test_refined_*.py
+    python scripts/run_refined_structural_validation.py
 
-3. Expected total:
+This generates 1000 graph realisations for each of R, SW, and SF (3000 graphs total) and writes raw records, distribution summaries, and metadata under:
 
-       261 passed
+    results/refined/structural_validation/
 
-4. If all 261 pass, record Milestone 10 as VERIFIED.
-5. Then run the D041 structural-only ensemble validation, preferably as a
-   compute-node/batch job rather than treating a 1000x3 ensemble as a unit test.
-6. Inspect the full distributions and summaries for:
+After completion, inspect:
 
-       in-degree Gini
-       top-five hub link share
-       global clustering
-       average path length on the LCC
-       largest-component share
+    results/refined/structural_validation/structural_summary.csv
+    results/refined/structural_validation/structural_metadata.json
 
-7. Required qualitative validation before market interpretation:
+Required qualitative validation before market interpretation:
 
-       SF concentration > matched Random concentration, materially
-       SW clustering > matched Random clustering, materially
-       SW retains relatively short paths
-       component coverage is reported alongside path length
+    SF concentration > matched Random concentration, materially
+    SW clustering > matched Random clustering, materially
+    SW retains relatively short paths
+    component coverage is reported alongside path length
 
-The report supplies qualitative ensemble expectations, not universal numeric
-cutoffs. Do not invent a hard pass/fail threshold.
+The report supplies qualitative ensemble expectations, not universal numeric cutoffs. Do not invent a hard pass/fail threshold.
+
+If structural separation is inadequate, recalibrate transparently and rerun structural validation before market simulation.
 
 ---
 
