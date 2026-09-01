@@ -11,7 +11,9 @@ from .fundamentals import (
     stationary_fundamental_variance,
     update_fundamental,
 )
+from .market import market_return, price_change, update_price
 from .parameters import RefinedParameters
+from .reputation import realised_profits, update_reputation
 from .shocks import PeriodShocks
 from .state import (
     PeriodOutputs,
@@ -43,13 +45,18 @@ __all__ = [
     "fundamental_value",
     "initialise_state",
     "inventory_feasible_bounds",
+    "market_return",
     "net_order_flow",
     "perceived_values",
+    "price_change",
     "private_signals",
+    "realised_profits",
     "stationary_fundamental_variance",
     "update_beliefs",
     "update_fundamental",
     "update_positions",
+    "update_price",
+    "update_reputation",
     "validate_attention",
     "validate_graph_support",
     "valuation_gaps",
