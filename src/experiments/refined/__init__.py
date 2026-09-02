@@ -3,7 +3,9 @@
 from .action_covariance import RollingActionCovariancePoint, rolling_action_covariance
 from .baseline_specification import (
     RefinedBaselineCandidate,
+    RefinedBaselineSpecification,
     first_refined_baseline_candidate,
+    first_refined_baseline_specification,
     generate_neutral_nonnetwork_initial_conditions,
 )
 from .calibration import StructuralValidationCalibration, first_structural_validation_calibration
@@ -106,6 +108,7 @@ __all__ = [
     "RealisedInfluencePath",
     "RealisedInfluencePoint",
     "RefinedBaselineCandidate",
+    "RefinedBaselineSpecification",
     "ReplicationSeeds",
     "RollingActionCovariancePoint",
     "RollingCIDComponentsPoint",
@@ -134,6 +137,7 @@ __all__ = [
     "estimate_reference_scales",
     "first_market_evaluation_calibration_protocol",
     "first_refined_baseline_candidate",
+    "first_refined_baseline_specification",
     "first_structural_validation_calibration",
     "generate_neutral_nonnetwork_initial_conditions",
     "maximum_absolute_mispricing",
