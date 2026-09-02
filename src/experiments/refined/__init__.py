@@ -54,6 +54,14 @@ from .market_calibration import (
     estimate_reference_scales,
     first_market_evaluation_calibration_protocol,
 )
+from .market_calibration_run import (
+    FinalMarketCalibrationRun,
+    calibration_configuration_fingerprint,
+    load_reference_scales,
+    run_final_market_calibration,
+    run_scale_calibration_stage,
+    run_threshold_calibration_stage,
+)
 from .market_metrics import (
     RunLevelMarketOutcomes,
     compute_run_level_market_outcomes,
@@ -73,6 +81,7 @@ from .market_smoke import (
     run_first_refined_baseline_scale_smoke,
     summarise_market_scale_smoke,
 )
+from .no_social_calibration_paths import no_social_component_path, no_social_parameters
 from .paired import PairedReplicationPlan, ReplicationSeeds, prepare_paired_replication
 from .seeding import derive_graph_seed, derive_semantic_seed
 from .sigma0_sensitivity import (
@@ -102,6 +111,7 @@ __all__ = [
     "CIDThresholdConfiguration",
     "CIDWeights",
     "DistributionSummary",
+    "FinalMarketCalibrationRun",
     "MarketEvaluationCalibration",
     "MarketEvaluationCalibrationProtocol",
     "MarketScaleSmokeProtocol",
@@ -135,6 +145,7 @@ __all__ = [
     "attention_mobility",
     "attention_overlap",
     "calibrate_market_evaluation",
+    "calibration_configuration_fingerprint",
     "classify_cid_path",
     "compute_run_level_market_outcomes",
     "derive_graph_seed",
@@ -148,9 +159,12 @@ __all__ = [
     "first_refined_baseline_specification",
     "first_structural_validation_calibration",
     "generate_neutral_nonnetwork_initial_conditions",
+    "load_reference_scales",
     "maximum_absolute_mispricing",
     "mean_absolute_order_flow_per_agent",
     "mean_absolute_return",
+    "no_social_component_path",
+    "no_social_parameters",
     "normalised_attention_entropy",
     "operational_stabilisation",
     "prepare_paired_replication",
@@ -164,10 +178,13 @@ __all__ = [
     "rolling_action_covariance",
     "rolling_cid",
     "rolling_cid_components",
+    "run_final_market_calibration",
     "run_first_refined_baseline_scale_smoke",
     "run_no_social_calibration_smoke",
+    "run_scale_calibration_stage",
     "run_sigma0_sensitivity_smoke",
     "run_structural_ensemble",
+    "run_threshold_calibration_stage",
     "standardise_cid_components",
     "structural_hub_nodes",
     "summarise_market_scale_smoke",
