@@ -51,18 +51,13 @@ Evaluation/mechanism layers VERIFIED:
 
 Eq. (266)-(267) KL-to-transition-prior remains deferred with attention inertia.
 
-## Verified test checkpoint
+## Latest verified test checkpoint
 
-Latest Iridis checkpoint:
-
-    474 passed in 8.02s
+    504 passed in 5.88s
 
 with clean working tree and branch up to date with origin/refined-model.
 
-This verifies:
-
-- Milestone 16: D042 separate-sample market-evaluation calibration METHOD;
-- the provisional baseline-specification object and neutral non-network initialisation rule.
+This verifies the D042 calibration method, provisional baseline object/initialisation, and baseline scale-smoke evaluator/driver.
 
 ## D042 market-evaluation calibration method — FROZEN
 
@@ -87,22 +82,13 @@ Module:
 
     src/experiments/refined/baseline_specification.py
 
-Provenance:
+Provenance and smoke record:
 
     docs/REFINED_BASELINE_CANDIDATE.md
 
 Status:
 
     PROVISIONAL — NOT FROZEN
-
-Candidate design:
-
-    N = 100
-    K = 6
-    T = 1000
-    q = 5
-    p_sw = 0.02
-    a0 = 1.0
 
 Candidate parameters:
 
@@ -120,7 +106,7 @@ Candidate parameters:
     sigma_p      = 0.001
     gamma_R      = 0.9
     beta         = 1.0
-    sigma_0      = 1e-6
+    sigma_0      = 1e-6   # under pre-freeze review
 
 Neutral non-network initialisation candidate:
 
@@ -132,69 +118,95 @@ Neutral non-network initialisation candidate:
 
 W_0 remains topology-specific uniform graph-supported attention.
 
-## Baseline scale/non-degeneracy smoke — NEW
-
-New module:
-
-    src/experiments/refined/market_smoke.py
+## Completed baseline scale smoke
 
 Driver:
 
     scripts/run_refined_baseline_scale_smoke.py
 
-Tests:
-
-    tests/test_refined_market_smoke.py
-
-The default smoke design uses:
+Design:
 
     experiment_seed = 2026090203
     paired replications = 5
-    topology treatments = R, SW, SF
-    candidate N = 100
-    candidate T = 1000
+    total treatment runs = 15
+    N = 100
+    T = 1000
 
-The smoke seed namespace is separate from both D042 calibration namespaces and must not be reused for confirmatory topology evaluation.
+Pooled medians:
 
-The smoke records absolute scale diagnostics only. It does NOT estimate pairwise topology contrasts or rank topologies. Raw records retain topology labels only for anomaly tracing; the main summary is pooled across all smoke runs.
+    return_std                              0.00342286
+    mean_abs_return                         0.00271065
+    max_abs_return                          0.0109005
+    rms_mispricing                          0.0685422
+    max_abs_mispricing                      0.219996
+    mean_abs_flow_per_agent                 0.0784241
+    rms_flow_per_agent                      0.101498
+    desired_action_abs_p95                  0.304871
+    desired_action_saturation_fraction      0.0
+    execution_projection_fraction           0.14608
+    inventory_boundary_fraction             0.14608
+    median_local_reputation_std              0.000672808
+    median_reputation_scale_to_sigma0        672.808
+    mean_attention_mobility                  0.0492363
+    max_attention_mobility                   0.664115
+    final_attention_distance_from_initial    0.379522
 
-Diagnostics include:
+Interpretation:
 
-- return sample SD, mean absolute return, maximum absolute return;
-- RMS and maximum absolute mispricing;
-- mean absolute and RMS signed net flow per agent;
-- 95th percentile of absolute desired action;
-- desired-action near-saturation fraction, using |a_tilde| >= 0.99 as an engineering diagnostic;
-- execution-projection fraction, using executed action != desired action;
-- fraction of realised positions on the inventory boundary;
-- median and maximum local raw reputation dispersion;
-- median local reputation scale relative to sigma_0;
-- mean/max attention mobility and final W distance from W_0.
+- returns, mispricing and signed flow are finite and non-degenerate;
+- desired actions are not tanh-saturated;
+- inventory constraints are active but not mechanically dominant;
+- the unresolved issue is sigma_0: realised local reputation dispersion is hundreds of times larger than the provisional floor, making regularisation almost immediately negligible.
 
-Only mathematical non-degeneracy is enforced in code: finite outputs, nonzero return variation, and nonzero order-flow variation. No arbitrary economic acceptance band is hard-coded.
+The report states that sigma_0 exists to prevent an almost-degenerate local reputation distribution from generating an artificial response after standardisation. Therefore sigma_0 must be checked before baseline freeze.
 
-New smoke tests add 30 pytest cases.
+## sigma_0 pre-freeze sensitivity smoke — NEW
+
+Module:
+
+    src/experiments/refined/sigma0_sensitivity.py
+
+Driver:
+
+    scripts/run_refined_sigma0_sensitivity_smoke.py
+
+Tests:
+
+    tests/test_refined_sigma0_sensitivity.py
+
+Controlled OAT grid:
+
+    sigma_0 in {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+
+Design rules:
+
+- reuse the same experiment seed 2026090203 and the same five replication ids;
+- therefore graph seeds, shock paths and neutral initial-state randomness are common across sigma_0 values;
+- change only sigma_0;
+- pool diagnostics across topology labels;
+- do not estimate R/SW/SF contrasts and do not tune toward a preferred topology ranking.
+
+Reported pooled diagnostics focus on reputation-scale/sigma_0, attention mobility/distance, returns, mispricing, signed flow and inventory projection.
+
+New tests add 24 pytest cases.
 
 Expected next checkpoint:
 
-    504 passed
+    528 passed
 
 ## Immediate next step
 
 1. Pull latest refined-model on Iridis.
-2. Run:
+2. Run all refined tests; expected 528 passed.
+3. If green, run:
 
-       python -m pytest -q tests/test_refined_*.py
+       python scripts/run_refined_sigma0_sensitivity_smoke.py
 
-3. Expected: 504 passed.
-4. If green, run the actual small smoke:
-
-       python scripts/run_refined_baseline_scale_smoke.py
-
-5. Inspect the pooled absolute-scale summary and raw records only for degeneracy/scale problems. Do not choose parameters because one topology ranks above another.
-6. If scale is defensible, promote the candidate baseline to a frozen decision.
-7. Then build/run a small no-social D042 calibration smoke before the full 500+500 calibration.
-8. Persist and freeze numerical c_ret, c_bel, c_F, and c_CID before any confirmatory R/SW/SF market experiment.
+4. Inspect the pooled table only for scale/regularisation behavior.
+5. Select sigma_0 on pre-freeze regularisation grounds, document the choice, and freeze the complete baseline vector only if the resulting model remains non-degenerate.
+6. Recheck the alpha=0 topology-null property under the selected frozen vector.
+7. Then run a small no-social D042 calibration smoke before the full 500+500 calibration.
+8. Persist and freeze numerical c_ret, c_bel, c_F, and c_CID before any confirmatory topology market experiment.
 
 Large topology-evaluation Monte Carlo remains prohibited until these gates pass.
 
