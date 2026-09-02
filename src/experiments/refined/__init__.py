@@ -1,18 +1,12 @@
-"""Refined confirmatory experiment-design utilities.
+"""Refined confirmatory experiment-design utilities."""
 
-This package is separate from legacy experiment runners and implements the
-report-defined refined paired, structural-validation, calibration, and
-evaluation workflows.
-"""
-
-from .action_covariance import (
-    RollingActionCovariancePoint,
-    rolling_action_covariance,
+from .action_covariance import RollingActionCovariancePoint, rolling_action_covariance
+from .baseline_specification import (
+    RefinedBaselineCandidate,
+    first_refined_baseline_candidate,
+    generate_neutral_nonnetwork_initial_conditions,
 )
-from .calibration import (
-    StructuralValidationCalibration,
-    first_structural_validation_calibration,
-)
+from .calibration import StructuralValidationCalibration, first_structural_validation_calibration
 from .cid import (
     CIDReferenceScales,
     CIDWeights,
@@ -62,11 +56,7 @@ from .market_metrics import (
     rms_mispricing,
     time_averaged_belief_variance,
 )
-from .paired import (
-    PairedReplicationPlan,
-    ReplicationSeeds,
-    prepare_paired_replication,
-)
+from .paired import PairedReplicationPlan, ReplicationSeeds, prepare_paired_replication
 from .seeding import derive_graph_seed, derive_semantic_seed
 from .structural import (
     DistributionSummary,
@@ -97,6 +87,7 @@ __all__ = [
     "PreparedTopologyTreatment",
     "RealisedInfluencePath",
     "RealisedInfluencePoint",
+    "RefinedBaselineCandidate",
     "ReplicationSeeds",
     "RollingActionCovariancePoint",
     "RollingCIDComponentsPoint",
@@ -119,7 +110,9 @@ __all__ = [
     "estimate_cid_threshold",
     "estimate_reference_scales",
     "first_market_evaluation_calibration_protocol",
+    "first_refined_baseline_candidate",
     "first_structural_validation_calibration",
+    "generate_neutral_nonnetwork_initial_conditions",
     "maximum_absolute_mispricing",
     "mean_absolute_order_flow_per_agent",
     "mean_absolute_return",
