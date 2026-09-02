@@ -55,6 +55,7 @@ Refined experiment/evaluation layer:
         cid.py
         cid_events.py
         influence_metrics.py
+        market_calibration.py
 
 Refined topology layer:
 
@@ -70,15 +71,26 @@ Structural-validation driver:
 
 ## 4. Binding Scientific Decisions
 
-See `docs/DECISIONS.md`. Key frozen points include separation of `G` and `W_t`, lagged attention in beliefs, signed net order flow, inherited-position profit, paired common-random-number design, mandatory `alpha=0` negative control, and D041 structural-validation calibration.
+See `docs/DECISIONS.md`.
 
-No numerical CID threshold, component guardrail, rolling-window length, or CID reference scale has yet been frozen for the market experiment.
+Key frozen decisions include:
+
+- G and W_t are distinct objects;
+- beliefs use lagged W_{t-1};
+- signed net order flow is F_t=sum_i a_i,t;
+- profit uses inherited positions;
+- paired common-random-number topology design;
+- mandatory alpha=0 negative control;
+- D041 first structural-validation calibration;
+- D042 first refined market-evaluation calibration METHOD.
+
+D042 freezes the calibration protocol, but the numerical CID reference scales and threshold do not exist yet. Actual market calibration must wait until the baseline refined parameter vector and non-network initial-condition rule are frozen.
 
 ---
 
-## 5. Verified Refined Core and Paired Infrastructure
+## 5. Fixed-Topology Runtime — VERIFIED
 
-The fixed-topology runtime for Equations (35)-(82) is implemented and VERIFIED, including canonical timing, deterministic multi-period simulation, shock generation, paired semantic seeds, topology-specific graph generation, neutral graph-supported `W_0`, and generated-treatment `alpha=0` controls.
+Equations (35)-(82) are implemented and VERIFIED, including canonical timing, deterministic multi-period simulation, shock generation, paired semantic seeds, topology-specific graph generation, neutral graph-supported W_0, and generated-treatment alpha=0 controls.
 
 ---
 
@@ -94,16 +106,14 @@ D041:
     p_sw = 0.02
     a0 = 1.0
 
-The 3000-graph structural run completed on Iridis.
-
-Mean diagnostics:
+Mean diagnostics from the completed 3000-graph Iridis run:
 
               Gini      top-5 share   clustering    APL-LCC    LCC share
     R       0.21951       0.09371       0.10846      2.09894      1.00000
     SW      0.03201       0.05932       0.54982      4.46807      1.00000
     SF      0.51145       0.18908       0.13959      2.08013      1.00000
 
-Structural separation is strong and non-overlapping in the intended dimensions. All symmetrised supports are fully connected. SW is highly clustered and fully connected with a limited-shortcut structure, but its APL-LCC is materially longer than Random; do not describe it as Random-like in path length.
+Structural separation is strong and non-overlapping in the intended dimensions. All symmetrised supports are fully connected. SW is highly clustered and fully connected with a limited-shortcut structure, but its APL-LCC is materially longer than Random.
 
 ---
 
@@ -126,20 +136,21 @@ Verified on Iridis:
     219 passed
     247 passed
     261 passed
-    284 passed   + run-level market outcomes, Eqs. (236)-(238), (288)-(289)
-    302 passed   + rolling action covariance / order-flow variance decomposition, Eqs. (239)-(240)
-    341 passed   + rolling CID components, standardisation, and dimensionless CID, Eqs. (241)-(246)
-    374 passed   + threshold/duration/right-censored stabilisation logic, Eqs. (247)-(250)
+    284 passed   + run-level market outcomes
+    302 passed   + rolling action covariance / order-flow variance decomposition
+    341 passed   + rolling CID components / standardisation / CID
+    374 passed   + threshold / duration / right-censored stabilisation
+    409 passed   + realised-influence concentration / overlap / mobility
 
 Latest verified checkpoint:
 
-    374 passed in 6.75s
+    409 passed in 6.04s
 
 with clean working tree and branch up to date with `origin/refined-model`.
 
 ---
 
-## 8. Market Outcome, Covariance, and CID Layers — VERIFIED
+## 8. Evaluation and Mechanism Layers — VERIFIED
 
 Verified modules:
 
@@ -147,109 +158,152 @@ Verified modules:
     src/experiments/refined/action_covariance.py
     src/experiments/refined/cid.py
     src/experiments/refined/cid_events.py
+    src/experiments/refined/influence_metrics.py
 
 Implemented and VERIFIED:
 
-    Eq. (236) return volatility RV
-    Eq. (237) RMS mispricing RMSM
-    Eq. (237) maximum absolute mispricing MAM
-    Eq. (238) mean absolute signed net order flow per agent MAF
-    Eq. (239) rolling average pairwise sample action covariance
-    Eq. (240) exact rolling signed-order-flow variance decomposition
-    Eq. (241) rolling sample return volatility V_ret
-    Eq. (242) rolling belief dispersion B_bel
-    Eq. (243) RMS signed net-order-flow pressure Q_F
-    Eq. (244) explicit positive reference scales
-    Eq. (245) non-negative weights summing to one
-    Eq. (246) dimensionless weighted CID
-    Eq. (247) threshold-exceedance indicator with optional component guardrails
-    Eq. (248) topology-level exceedance-rate aggregator
-    Eq. (249) peak CID and CID-only exceedance-duration share
-    Eq. (250) operational stabilisation with L_stab consecutive admissible windows and right-censoring
-    Eq. (288) mean absolute return MAR
-    Eq. (289) time-averaged cross-sectional belief variance V_b
+- Eqs. (236)-(238): RV, RMSM, MAM, MAF;
+- Eqs. (239)-(240): rolling action covariance and exact order-flow variance decomposition;
+- Eqs. (241)-(246): raw CID components, reference-scale standardisation, weights, CID;
+- Eqs. (247)-(250): threshold exceedance, peak/duration, operational stabilisation, right-censoring;
+- Eqs. (251)-(265): normalised attention entropy, effective sources, realised influence shares/HHI, structural-hub realised influence, overlap, mobility;
+- Eqs. (288)-(289): MAR and time-averaged cross-sectional belief variance.
 
-Important threshold semantics are VERIFIED: Eq. (247) uses strict `>`; Eq. (250) uses `<=`; inactive component guardrails are treated as `+infinity`; right-censored runs are not assigned artificial stabilisation times. The report-defined first-stage default is `L_stab=50`.
+Eq. (266)-(267) KL divergence to a transition prior remains deferred with the attention-inertia extension because the current first-stage rule is frictionless tau=0.
 
-No numerical `c_CID`, component guardrail, CID reference scale, or market rolling window is hard-coded.
+The mechanism chain can now be measured directly:
+
+    G
+      -> W_t concentration / structural-hub influence / overlap / mobility
+      -> rolling action covariance
+      -> signed aggregate order flow
+      -> return / mispricing outcomes
 
 ---
 
-## 9. Realised Influence / Common Exposure — NEW
+## 9. Market-Evaluation Calibration Protocol — NEW
 
 NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
 
-    src/experiments/refined/influence_metrics.py
+    src/experiments/refined/market_calibration.py
+
+Decision register:
+
+    D042 — First Refined Market-Evaluation Calibration Protocol
 
 Public API:
 
-    structural_hub_nodes(...)
-    attention_entropy(...)
-    normalised_attention_entropy(...)
-    effective_number_of_sources(...)
-    realised_influence_shares(...)
-    realised_influence_hhi(...)
-    realised_hub_influence_share(...)
-    attention_overlap(...)
-    attention_mobility(...)
-    RealisedInfluencePoint
-    RealisedInfluencePath
-    realised_influence_path(...)
+    MarketEvaluationCalibrationProtocol
+    MarketEvaluationCalibration
+    first_market_evaluation_calibration_protocol(...)
+    estimate_reference_scales(...)
+    estimate_cid_threshold(...)
+    calibrate_market_evaluation(...)
 
-Implements:
+Frozen METHOD for the first confirmatory market run:
 
-    Eq. (251) row-level entropy normalised by log out-degree
-    Eq. (252) effective number of sources exp(H)
-    Eq. (253) network-average normalised entropy and effective-source count
-    Eqs. (254)-(255) realised source influence shares from W_t column sums
-    Eq. (256) realised-influence HHI
-    Eq. (257) realised influence share of structural hubs H_q(G)
-    Eqs. (258)-(264) aggregate attention overlap / common exposure
-    Eq. (265) RMS row-level one-period attention mobility
+    T = 1000
+    B = 0
+    rolling L = 50
+    robustness L = {25, 100}
+    alpha_calibration = 0
 
-The path evaluator records t=1,...,T. Period-t concentration/overlap uses `W_t = states[t].attention`; mobility uses `(W_{t-1}, W_t)`, so the first value measures the transition from neutral `W_0` to `W_1`.
+    scale sample:
+        500 no-social replications
+        seed namespace 2026090201
 
-Structural hubs are selected from directed in-degree in G, never from realised W_t. The report does not specify how to break an in-degree tie at the q-th rank; implementation uses decreasing in-degree then increasing node label as a deterministic reproducibility convention. This tie-break has no economic meaning.
+    threshold sample:
+        500 separate no-social replications
+        seed namespace 2026090202
 
-For fixed-out-degree graphs under neutral uniform W_0, the implementation/test design checks the identity:
+    reference scales:
+        pooled median of each raw rolling component
 
-    realised source share = in-degree / total links
+    CID weights:
+        equal (1/3, 1/3, 1/3)
 
-and therefore:
+    c_CID:
+        95th percentile of run-level peak CID
+        using the conservative `higher` finite-sample quantile convention
 
-    S^I_q,0 = S^G_q
+    baseline component guardrails:
+        inactive
 
-before adaptive attention reallocates influence.
+    L_stab = 50
 
-The implementation stores agent-level entropy/effective-source arrays and source-level influence shares as well as network scalar summaries, so mechanism analysis does not require rerunning dynamics.
+The scale and threshold samples are deliberately separate. Their seeds must also remain disjoint from later topology-evaluation seeds.
 
-Eq. (266)-(267) KL divergence to a transition prior remains DEFERRED with the attention-inertia extension because the current first-stage model uses the frictionless `tau=0` attention rule.
+A non-positive pooled-median reference scale is a calibration failure. The implementation does not add an epsilon to manufacture a valid denominator.
 
 New test file:
 
-    tests/test_refined_influence_metrics.py
+    tests/test_refined_market_calibration.py
 
-adds 35 pytest cases.
+adds 36 pytest cases.
 
 Expected next total:
 
-    409 passed
+    445 passed
 
 ---
 
-## 10. Computational Milestones
+## 10. Important Remaining Scientific Gate
 
-Milestones 1-14 are VERIFIED, including structural validation, market outcomes, action covariance, CID construction, and threshold/stabilisation logic.
+DO NOT RUN the 500+500 no-social calibration simulations yet.
 
-Milestone 15 — realised-influence concentration, overlap, and mobility, Eqs. (251)-(265):
+The calibration distribution depends on the maintained market specification. Before actual calibration, freeze explicitly:
 
+1. the homogeneous baseline `RefinedParameters` vector:
+
+       rho_theta
+       sigma_theta
+       v_bar
+       psi
+       sigma_s
+       sigma_b
+       alpha for evaluation regimes
+       kappa
+       x_bar
+       chi
+       lambda_price
+       sigma_p
+       gamma_R
+       beta
+       sigma_0
+
+2. the non-network initial-condition rule for:
+
+       theta_0
+       b_0
+       x_0
+       p_0
+       R_0
+
+The report allows neutral x_0=0 and R_0=0 and stationary theta_0, but it does not uniquely specify numerical b_0 or p_0 rules. Do not silently invent them.
+
+Legacy pilot defaults may inform provenance, but the refined price law, trading law, inventory constraint, profit convention, and attention rule differ. Therefore legacy numerical defaults must not be copied automatically into the refined baseline.
+
+---
+
+## 11. Computational Milestones
+
+Milestones 1-15 are VERIFIED.
+
+Milestone 15:
+
+    realised-influence concentration, overlap, and mobility, Eqs. (251)-(265)
+    VERIFIED at 409 tests
+
+Milestone 16:
+
+    separate-sample market-evaluation calibration protocol
     IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
 
-Do not start the large refined market Monte Carlo yet. After influence verification, the remaining critical gate is explicit market-evaluation calibration: rolling window `L`, CID reference scales, CID weights, `c_CID`, optional component guardrails, and `L_stab=50` must be frozen independently of topology rankings.
+Large topology-evaluation market Monte Carlo remains prohibited until the market parameter vector, non-network initial rule, calibration outputs, and a small end-to-end market-run smoke test are all frozen and verified.
 
 ---
 
-## 11. Immediate Next Step
+## 12. Immediate Next Step
 
 1. Pull latest `refined-model` on Iridis.
 2. Run:
@@ -258,43 +312,36 @@ Do not start the large refined market Monte Carlo yet. After influence verificat
 
 3. Expected total:
 
-       409 passed
+       445 passed
 
-4. If all 409 pass, record Milestone 15 as VERIFIED.
-5. Then design and freeze the market-evaluation calibration protocol before any topology-evaluation market Monte Carlo:
-
-       rolling window L
-       separate no-social calibration sample / seeds
-       c_ret, c_bel, c_F
-       CID weights
-       c_CID
-       optional component guardrails
-       L_stab = 50
-
-6. Calibration inputs must be fixed independently of observed R/SW/SF rankings.
-7. After calibration is frozen, build the paired market-run driver and persistent run-level/mechanism output layer, then run a small smoke experiment before any 1000-replication confirmatory job.
+4. If 445 pass, record Milestone 16 as VERIFIED.
+5. Then inspect the report and legacy pilot only for provenance and define the FIRST REFINED BASELINE market parameter vector and non-network initial-condition rule as a new explicit decision.
+6. Only after that decision is tested should we build the no-social calibration runner for D042.
+7. Run a small calibration smoke job before the full 500+500 calibration samples.
+8. Freeze the resulting c_ret, c_bel, c_F, and c_CID in a persistent calibration artifact before any R/SW/SF market-evaluation job.
 
 ---
 
-## 12. Planned Development Sequence
+## 13. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model                         COMPLETE
     Phase 2  Refined binary topology generators                       COMPLETE
     Phase 3  Deterministic integration and multi-period tests         COMPLETE
     Phase 4  Paired fixed-topology design + structural validation      COMPLETE
-    Phase 5  Refined market metrics and CID                            NEAR COMPLETE
-    Phase 6  Influence / overlap / action-covariance diagnostics       IN PROGRESS
-    Phase 7  alpha / beta / gamma_R experiments and heterogeneity      PLANNED
-    Phase 8  Endogenous feasible-network formation and rewiring        PLANNED
-    Phase 9  Full equilibrium Jacobian / Lyapunov analysis             PLANNED
-    Phase 10 State-space / synthetic recovery / EKF / empirical work   PLANNED
-    Phase 11 Planner / policy analysis                                 PLANNED
+    Phase 5  Refined market metrics / CID / calibration protocol       NEAR COMPLETE
+    Phase 6  Influence / overlap / action-covariance diagnostics       COMPLETE
+    Phase 7  Baseline market calibration + paired market runner        NEXT
+    Phase 8  alpha / beta / gamma_R experiments and heterogeneity      PLANNED
+    Phase 9  Endogenous feasible-network formation and rewiring        PLANNED
+    Phase 10 Full equilibrium Jacobian / Lyapunov analysis             PLANNED
+    Phase 11 State-space / synthetic recovery / EKF / empirical work   PLANNED
+    Phase 12 Planner / policy analysis                                 PLANNED
 
 Optional later extension: MARL
 
 ---
 
-## 13. New-Chat Handoff Prompt
+## 14. New-Chat Handoff Prompt
 
 When starting a new conversation:
 
