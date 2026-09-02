@@ -51,17 +51,20 @@ Evaluation/mechanism layers VERIFIED:
 
 Eq. (266)-(267) KL-to-transition-prior remains deferred with attention inertia.
 
-## Verified test checkpoints
+## Verified test checkpoint
 
 Latest Iridis checkpoint:
 
-    445 passed in 7.61s
+    474 passed in 8.02s
 
 with clean working tree and branch up to date with origin/refined-model.
 
-This verifies Milestone 16: D042 separate-sample market-evaluation calibration METHOD.
+This verifies:
 
-D042 method:
+- Milestone 16: D042 separate-sample market-evaluation calibration METHOD;
+- the provisional baseline-specification object and neutral non-network initialisation rule.
+
+## D042 market-evaluation calibration method — FROZEN
 
     T = 1000
     B = 0
@@ -78,13 +81,13 @@ D042 method:
 
 DO NOT run the 500+500 calibration yet.
 
-## Provisional refined baseline candidate — NEW
+## Provisional refined baseline candidate
 
-New module:
+Module:
 
     src/experiments/refined/baseline_specification.py
 
-Provenance note:
+Provenance:
 
     docs/REFINED_BASELINE_CANDIDATE.md
 
@@ -101,7 +104,7 @@ Candidate design:
     p_sw = 0.02
     a0 = 1.0
 
-Candidate RefinedParameters:
+Candidate parameters:
 
     rho_theta    = 0.985
     sigma_theta  = 0.025
@@ -119,7 +122,7 @@ Candidate RefinedParameters:
     beta         = 1.0
     sigma_0      = 1e-6
 
-Provisional neutral non-network initialisation:
+Neutral non-network initialisation candidate:
 
     theta_0 ~ stationary AR(1)
     b_i,0 = theta_0 for all i
@@ -129,30 +132,69 @@ Provisional neutral non-network initialisation:
 
 W_0 remains topology-specific uniform graph-supported attention.
 
-Rationale: B=0 means arbitrary initial mispricing or disagreement would mechanically contaminate the measured path. This neutral rule starts without such artificial deviations; period-1 signals and belief noise then operate normally.
+## Baseline scale/non-degeneracy smoke — NEW
 
-The pilot is used only as provenance. In particular, pilot level-price coefficients are mapped to refined normalised return units before being used as candidate anchors. New refined choices chi, x_bar, and sigma_0 must pass scale validation.
+New module:
 
-New tests:
+    src/experiments/refined/market_smoke.py
 
-    tests/test_refined_baseline_specification.py
+Driver:
 
-adds 29 pytest cases.
+    scripts/run_refined_baseline_scale_smoke.py
 
-Expected next total:
+Tests:
 
-    474 passed
+    tests/test_refined_market_smoke.py
+
+The default smoke design uses:
+
+    experiment_seed = 2026090203
+    paired replications = 5
+    topology treatments = R, SW, SF
+    candidate N = 100
+    candidate T = 1000
+
+The smoke seed namespace is separate from both D042 calibration namespaces and must not be reused for confirmatory topology evaluation.
+
+The smoke records absolute scale diagnostics only. It does NOT estimate pairwise topology contrasts or rank topologies. Raw records retain topology labels only for anomaly tracing; the main summary is pooled across all smoke runs.
+
+Diagnostics include:
+
+- return sample SD, mean absolute return, maximum absolute return;
+- RMS and maximum absolute mispricing;
+- mean absolute and RMS signed net flow per agent;
+- 95th percentile of absolute desired action;
+- desired-action near-saturation fraction, using |a_tilde| >= 0.99 as an engineering diagnostic;
+- execution-projection fraction, using executed action != desired action;
+- fraction of realised positions on the inventory boundary;
+- median and maximum local raw reputation dispersion;
+- median local reputation scale relative to sigma_0;
+- mean/max attention mobility and final W distance from W_0.
+
+Only mathematical non-degeneracy is enforced in code: finite outputs, nonzero return variation, and nonzero order-flow variation. No arbitrary economic acceptance band is hard-coded.
+
+New smoke tests add 30 pytest cases.
+
+Expected next checkpoint:
+
+    504 passed
 
 ## Immediate next step
 
 1. Pull latest refined-model on Iridis.
-2. Run all refined tests.
-3. Expected: 474 passed.
-4. If green, build a SMALL paired scale/non-degeneracy smoke runner using this provisional candidate.
-5. Smoke must report return/mispricing scales, signed net flow per agent, desired-action magnitudes/saturation, inventory-bound contacts, reputation scale relative to sigma_0, influence HHI/overlap/mobility, and finiteness.
-6. Smoke is NOT a topology-ranking search. Do not tune the candidate to make R/SW/SF differ.
-7. Only after the candidate passes scale smoke should it be promoted to a frozen design decision and used for D042 calibration.
-8. Then run a small no-social calibration smoke before the full 500+500 calibration samples.
+2. Run:
+
+       python -m pytest -q tests/test_refined_*.py
+
+3. Expected: 504 passed.
+4. If green, run the actual small smoke:
+
+       python scripts/run_refined_baseline_scale_smoke.py
+
+5. Inspect the pooled absolute-scale summary and raw records only for degeneracy/scale problems. Do not choose parameters because one topology ranks above another.
+6. If scale is defensible, promote the candidate baseline to a frozen decision.
+7. Then build/run a small no-social D042 calibration smoke before the full 500+500 calibration.
+8. Persist and freeze numerical c_ret, c_bel, c_F, and c_CID before any confirmatory R/SW/SF market experiment.
 
 Large topology-evaluation Monte Carlo remains prohibited until these gates pass.
 
