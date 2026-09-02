@@ -53,6 +53,7 @@ Refined experiment/evaluation layer:
         market_metrics.py
         action_covariance.py
         cid.py
+        cid_events.py
 
 Refined topology layer:
 
@@ -69,6 +70,8 @@ Structural-validation driver:
 ## 4. Binding Scientific Decisions
 
 See `docs/DECISIONS.md`. Key frozen points include separation of `G` and `W_t`, lagged attention in beliefs, signed net order flow, inherited-position profit, paired common-random-number design, mandatory `alpha=0` negative control, and D041 structural-validation calibration.
+
+No numerical CID threshold, component guardrail, or reference scale has yet been frozen for the market experiment.
 
 ---
 
@@ -124,122 +127,106 @@ Verified on Iridis:
     261 passed
     284 passed   + run-level market outcomes, Eqs. (236)-(238), (288)-(289)
     302 passed   + rolling action covariance / order-flow variance decomposition, Eqs. (239)-(240)
+    341 passed   + rolling CID components, standardisation, and dimensionless CID, Eqs. (241)-(246)
 
 Latest verified checkpoint:
 
-    302 passed in 5.72s
+    341 passed in 6.59s
 
 with clean working tree and branch up to date with `origin/refined-model`.
 
 ---
 
-## 8. Run-Level Market Outcome Metrics — VERIFIED
+## 8. Run-Level and Rolling Market Metrics — VERIFIED
 
-Implemented and VERIFIED in:
+Verified modules:
 
     src/experiments/refined/market_metrics.py
+    src/experiments/refined/action_covariance.py
+    src/experiments/refined/cid.py
 
-Implements:
+Implemented and VERIFIED:
 
     Eq. (236) return volatility RV
     Eq. (237) RMS mispricing RMSM
     Eq. (237) maximum absolute mispricing MAM
     Eq. (238) mean absolute signed net order flow per agent MAF
-    Eq. (288) mean absolute return MAR
-    Eq. (289) time-averaged cross-sectional belief variance V_b
-
-Baseline evaluation uses `B=0`; positive burn-in remains an explicit robustness choice. Metrics evaluate `SimulationResult` only and do not duplicate economic dynamics.
-
----
-
-## 9. Rolling Action Covariance — VERIFIED
-
-Implemented and VERIFIED in:
-
-    src/experiments/refined/action_covariance.py
-
-Public API:
-
-    RollingActionCovariancePoint
-    rolling_action_covariance(...)
-
-Implements:
-
-    Eq. (239) average pairwise sample action covariance
-    Eq. (240) exact sample variance decomposition of signed net order flow
-
-For valid endpoints `t=B+L,...,T`, the implementation uses full windows of length `L`, sample covariance/variance denominator `L-1`, validates `F_t=sum_i a_i,t`, and checks the decomposition numerically at every rolling endpoint.
-
----
-
-## 10. Rolling CID Components and Normalisation — NEW
-
-NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
-
-    src/experiments/refined/cid.py
-
-Public API:
-
-    RollingCIDComponentsPoint
-    CIDReferenceScales
-    CIDWeights
-    RollingCIDPoint
-    rolling_cid_components(...)
-    standardise_cid_components(...)
-    rolling_cid(...)
-
-Implements:
-
+    Eq. (239) rolling average pairwise sample action covariance
+    Eq. (240) exact rolling signed-order-flow variance decomposition
     Eq. (241) rolling sample return volatility V_ret
     Eq. (242) rolling belief dispersion B_bel
     Eq. (243) RMS signed net-order-flow pressure Q_F
-    Eq. (244) standardised components Z_ret, Z_bel, Z_F
+    Eq. (244) explicit positive reference scales
     Eq. (245) non-negative weights summing to one
     Eq. (246) dimensionless weighted CID
+    Eq. (288) mean absolute return MAR
+    Eq. (289) time-averaged cross-sectional belief variance V_b
 
-Rolling-window convention follows Eq. (235): valid endpoints are `t=B+L,...,T`, using exactly `L` post-burn-in observations.
+Eq. (242) uses period-level population cross-sectional belief variance `(1/N) sum_i (b_i-bbar)^2`, consistent with Eq. (289).
 
-The Eq. (242) period-level belief dispersion `D_b,t` is implemented as the population cross-sectional belief variance
+No CID reference scales are hard-coded. `CIDWeights.equal()` is only a convenience constructor and does not itself freeze the experiment design.
 
-    (1/N) sum_i (b_i,t - bbar_t)^2
+---
 
-consistent with the report's explicit Eq. (289) definition of cross-sectional belief variance.
+## 9. Threshold Exceedance and Operational Stabilisation — NEW
 
-The CID layer is deliberately split into:
+NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
 
-1. raw rolling components with no calibration;
-2. standardisation using explicit positive `CIDReferenceScales`;
-3. weighted combination using explicit valid `CIDWeights`.
+    src/experiments/refined/cid_events.py
 
-No numerical reference scales are hard-coded. `CIDWeights.equal()` is only a convenience constructor for the transparent equal-weight baseline mentioned in the report; the market experiment must still explicitly freeze its chosen weights before execution.
+Public API:
 
-No threshold, guardrail, or stabilisation logic from Eqs. (247)-(250) has been introduced yet.
+    CIDThresholdConfiguration
+    OperationalStabilisationResult
+    CIDRunClassification
+    operational_stabilisation(...)
+    classify_cid_path(...)
+    threshold_exceedance_rate(...)
+
+Implements:
+
+    Eq. (247) run-level threshold-exceedance indicator using OR across CID and active component guardrails
+    Eq. (248) topology-level exceedance rate as the mean of run indicators
+    Eq. (249) peak CID and fraction of evaluated windows with CID > c_CID
+    Eq. (250) first operational stabilisation start requiring CID and all active guardrails to remain admissible for L_stab consecutive windows
+
+Important semantics:
+
+- threshold exceedance uses strict `>`;
+- stabilisation admissibility uses `<=`;
+- Eq. (249) duration share counts CID threshold crossings only, not component-guardrail crossings;
+- inactive component guardrails are represented as `None` and treated as `+infinity`;
+- if no qualifying stabilisation block exists, `stabilisation_period=None` and `right_censored=True`; no artificial zero or pseudo-time is created;
+- `last_eligible_start_period` records the final start for which a complete L_stab block could be observed;
+- first-stage `L_stab=50` is the report-defined default, not an inferred calibration.
+
+No numerical `c_CID` or component guardrail values are hard-coded.
 
 New test file:
 
-    tests/test_refined_cid.py
+    tests/test_refined_cid_events.py
 
-adds 39 pytest cases.
+adds 33 pytest cases.
 
 Expected next total:
 
-    341 passed
+    374 passed
 
 ---
 
-## 11. Computational Milestones
+## 10. Computational Milestones
 
-Milestones 1-12 are VERIFIED, including structural validation, principal run-level market outcomes, and rolling action covariance.
+Milestones 1-13 are VERIFIED, including structural validation, principal market outcomes, action covariance, and CID Eqs. (241)-(246).
 
-Milestone 13 — rolling CID raw components and dimensionless normalisation, Eqs. (241)-(246):
+Milestone 14 — threshold/duration/right-censored stabilisation logic, Eqs. (247)-(250):
 
     IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
 
-Do not start the large refined market Monte Carlo yet. Threshold/stabilisation logic, realised-influence diagnostics, and explicit market-run calibration still need implementation/verification.
+Do not start the large refined market Monte Carlo yet. Realised-influence diagnostics and explicit market-run calibration still need implementation/verification.
 
 ---
 
-## 12. Immediate Next Step
+## 11. Immediate Next Step
 
 1. Pull latest `refined-model` on Iridis.
 2. Run:
@@ -248,16 +235,16 @@ Do not start the large refined market Monte Carlo yet. Threshold/stabilisation l
 
 3. Expected total:
 
-       341 passed
+       374 passed
 
-4. If all 341 pass, record Milestone 13 as VERIFIED.
-5. Then implement threshold-exceedance, peak/duration, and right-censored operational stabilisation logic, Eqs. (247)-(250), without selecting numerical thresholds from observed topology rankings.
-6. Then implement effective-influence concentration, overlap, and mobility, Eqs. (251)-(265).
-7. Freeze `L`, CID reference scales, CID weights, thresholds, component guardrails, and `L_stab` before topology-evaluation market Monte Carlo.
+4. If all 374 pass, record Milestone 14 as VERIFIED.
+5. Then implement effective-influence concentration, overlap, and mobility, Eqs. (251)-(265).
+6. After mechanism diagnostics, freeze the market-evaluation calibration inputs before topology-evaluation Monte Carlo: `L`, CID reference scales, CID weights, `c_CID`, optional component guardrails, and the report-defined `L_stab=50`.
+7. Calibration must be independent of observed topology rankings.
 
 ---
 
-## 13. Planned Development Sequence
+## 12. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model                         COMPLETE
     Phase 2  Refined binary topology generators                       COMPLETE
@@ -275,7 +262,7 @@ Optional later extension: MARL
 
 ---
 
-## 14. New-Chat Handoff Prompt
+## 13. New-Chat Handoff Prompt
 
 When starting a new conversation:
 
