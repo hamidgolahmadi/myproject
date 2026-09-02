@@ -27,7 +27,7 @@ Binding transition:
 
 Status: VERIFIED.
 
-## Paired design and semantic randomness
+## Paired design / semantic randomness
 
     src/experiments/refined/seeding.py
     src/experiments/refined/paired.py
@@ -39,7 +39,7 @@ Topology-specific: graph seed, realised G, graph-supported W0.
 
 Generated-treatment alpha=0 topology-null control: VERIFIED.
 
-## Topology generation and structural validation
+## Topologies / structural validation
 
     src/topologies/refined/generators.py
     src/topologies/refined/diagnostics.py
@@ -48,7 +48,7 @@ Generated-treatment alpha=0 topology-null control: VERIFIED.
     src/experiments/refined/structural_io.py
     scripts/run_refined_structural_validation.py
 
-D041 structural run: COMPLETE and VERIFIED.
+D041 structural validation: COMPLETE and VERIFIED.
 
 ## Market outcomes and CID
 
@@ -68,25 +68,25 @@ Mapping:
 
 Status: VERIFIED.
 
-Conventions:
+Key conventions:
 
-    return volatility uses sample SD
-    belief dispersion uses population cross-sectional variance
-    MAF and Q_F use signed net flow F_t, not gross volume
+    return volatility = sample SD
+    belief dispersion = population cross-sectional variance
+    MAF and Q_F use signed net flow F_t
     exceedance uses >
     stabilisation admissibility uses <=
     L_stab = 50
     censored runs receive no artificial stabilisation time
 
-## Realised influence and common exposure — Eqs. (251)-(265)
+## Realised influence / common exposure — Eqs. (251)-(265)
 
     src/experiments/refined/influence_metrics.py
 
-Implements normalised attention entropy, effective source count, realised source influence shares/HHI, realised influence of structural hubs, overlap, and RMS attention mobility.
+Implements entropy, effective source count, realised source influence/HHI, realised influence of structural hubs, overlap, and attention mobility.
 
-Structural hubs are selected from directed in-degree in G, never from W_t.
+Structural hubs come from directed in-degree in G, never from W_t.
 
-Neutral fixed-out-degree identity enforced:
+Neutral fixed-out-degree identity:
 
     W0 = G/K
     s^I_j,0 = d^in_j/(N K)
@@ -96,7 +96,7 @@ Eqs. (266)-(267) KL-to-transition-prior remain deferred with attention inertia.
 
 Status: VERIFIED.
 
-## Market-evaluation calibration method — D042
+## D042 market-evaluation calibration method
 
     src/experiments/refined/market_calibration.py
 
@@ -106,24 +106,26 @@ Frozen method:
     B = 0
     L = 50
     robustness L = {25,100}
-    alpha_calibration = 0
+    alpha = 0
 
     scale sample:
-        500 runs, namespace 2026090201
-        c_ret, c_bel, c_F = pooled medians of raw rolling components
+        500 runs
+        namespace 2026090201
+        c_ret, c_bel, c_F = pooled medians
 
     threshold sample:
-        500 separate runs, namespace 2026090202
+        500 separate runs
+        namespace 2026090202
         c_CID = 95th percentile of run-level peak CID
-        quantile convention = higher
+        quantile method = higher
 
     weights = equal thirds
-    baseline component guardrails = inactive
+    component guardrails = inactive
     L_stab = 50
 
-Status: METHOD VERIFIED. Numerical scales and `c_CID` are not yet produced.
+Method status: VERIFIED.
 
-## Frozen first refined baseline — D043
+## D043 frozen baseline
 
     src/experiments/refined/baseline_specification.py
     docs/REFINED_BASELINE.md
@@ -135,34 +137,29 @@ Canonical API:
 
 Frozen design:
 
-    N = 100
-    K = 6
-    T = 1000
-    q = 5
-    p_sw = 0.02
-    a0 = 1.0
+    N=100, K=6, T=1000, q=5, p_sw=0.02, a0=1.0
 
 Frozen parameters:
 
-    rho_theta    = 0.985
-    sigma_theta  = 0.025
-    v_bar        = 0.0
-    psi          = 1.0
-    sigma_s      = 0.06
-    sigma_b      = 0.025
-    alpha        = 0.75
-    kappa        = 2.4
-    x_bar        = 5.0
-    chi          = 0.02
-    lambda_price = 0.0002
-    sigma_p      = 0.001
-    gamma_R      = 0.9
-    beta         = 1.0
-    sigma_0      = 0.0005
+    rho_theta=0.985
+    sigma_theta=0.025
+    v_bar=0
+    psi=1
+    sigma_s=0.06
+    sigma_b=0.025
+    alpha=0.75
+    kappa=2.4
+    x_bar=5
+    chi=0.02
+    lambda_price=0.0002
+    sigma_p=0.001
+    gamma_R=0.9
+    beta=1
+    sigma_0=0.0005
 
-Frozen non-network initialisation:
+Frozen initialisation:
 
-    theta_0 ~ stationary N(0, sigma_theta^2/(1-rho_theta^2))
+    theta_0 ~ stationary AR(1)
     b_i,0 = theta_0
     p_0 = v_bar + psi theta_0
     x_0 = 0
@@ -170,80 +167,81 @@ Frozen non-network initialisation:
 
 W0 remains graph-supported uniform attention.
 
-Status: VERIFIED at 530-test checkpoint.
+Status: VERIFIED.
 
-## Pre-freeze smoke infrastructure — retained for provenance/robustness
-
-    src/experiments/refined/market_smoke.py
-    scripts/run_refined_baseline_scale_smoke.py
-    tests/test_refined_market_smoke.py
-
-    src/experiments/refined/sigma0_sensitivity.py
-    scripts/run_refined_sigma0_sensitivity_smoke.py
-    tests/test_refined_sigma0_sensitivity.py
-
-These modules compute absolute diagnostics only and never estimate topology treatment effects.
-
-## End-to-end no-social calibration smoke — NEW
+## Calibration smoke infrastructure
 
     src/experiments/refined/calibration_smoke.py
     scripts/run_refined_no_social_calibration_smoke.py
     tests/test_refined_calibration_smoke.py
 
-Purpose: verify the complete D043 -> alpha=0 -> simulation -> rolling CID components -> reference-scale estimation -> independent peak-CID threshold estimation -> persistence path before the full D042 500+500 calibration.
+Smoke-only seeds:
 
-Smoke-only namespaces:
+    2026090204 / 2026090205
 
-    scale_seed     = 2026090204
-    threshold_seed = 2026090205
+Observed successful 3+3 smoke:
 
-These are disjoint from the final D042 namespaces because smoke outputs are inspected during development and must never be reused in the final calibration sample.
+    c_ret = 0.003087925449
+    c_bel = 0.004183656828
+    c_F   = 0.1172234222
+    c_CID = 1.713734032
 
-Default smoke:
+These values are explicitly smoke-only and not final calibration values.
 
-    scale runs       = 3
-    threshold runs   = 3
-    alpha            = 0
-    N                = 100
-    T                = 1000
-    B                = 0
-    L                = 50
-    endpoints/run    = 951
+Status: VERIFIED at 568-test checkpoint.
 
-Calibration support convention:
+## Shared no-social path constructor
 
-- generate one canonical directed Random fixed-out-degree G per replication;
-- initialise W0 uniformly on that G;
-- retain full adaptive-attention runtime for architecture validity;
-- at alpha=0, G/W do not enter beliefs or market outcomes;
-- do not generate R/SW/SF triplets or use topology labels as extra calibration observations.
+    src/experiments/refined/no_social_calibration_paths.py
 
-The persisted smoke artifact is:
+Responsibilities:
 
-    results/refined/no_social_calibration_smoke/calibration_smoke.json
+- replace only alpha by zero;
+- derive semantic shock / initial-state / graph seeds;
+- generate one canonical valid Random fixed-out-degree support;
+- construct W0 and neutral non-network initial state;
+- run canonical refined simulator;
+- compute rolling CID components.
 
-and must contain:
+At alpha=0, adaptive and fixed attention must yield exactly identical return/belief/order-flow/CID-component paths under the same randomness. This exact equivalence is regression-tested. Production calibration uses fixed attention only as a computational shortcut; influence diagnostics are not computed from this shortcut.
 
-    final_calibration = false
+## Production D042 calibration — NEW
 
-so it cannot be confused with the later frozen 500+500 artifact.
+    src/experiments/refined/market_calibration_run.py
+    scripts/run_refined_market_calibration.py
+    tests/test_refined_market_calibration_run.py
 
-New tests: 37 cases. Expected next checkpoint: 567 tests.
+Production runner properties:
 
-## Current gate before full calibration / confirmatory Monte Carlo
+- defaults exactly to D042 500+500 protocol;
+- sequential scale then threshold stages;
+- per-scale-replication compressed NPZ checkpoints;
+- per-threshold-replication JSON peak-CID checkpoints;
+- resume after interruption;
+- deterministic SHA-256 fingerprint of the full D042 protocol + D043 baseline embedded in every checkpoint;
+- threshold checkpoint additionally bound to the realised reference-scale fingerprint;
+- exact pooled median reference scales;
+- exact `higher` empirical quantile of run-level peak CIDs;
+- `reference_scales.json` is stage-complete but not a final calibration artifact;
+- `market_evaluation_calibration.json` is created only after all threshold runs complete;
+- `threshold_peak_cids.csv` preserves all final run-level peaks;
+- production path uses `adaptive_attention=False` at alpha=0 after exact equivalence test;
+- CLI detects hostnames containing `login` and refuses the 500+500 run unless deliberately overridden.
 
-Required order:
+New production tests: 21.
 
-1. verify 567-test checkpoint;
-2. run the small no-social calibration smoke;
-3. check alpha=0, 951 endpoints, positive scales, finite CID peaks/threshold, and smoke artifact persistence;
-4. do not freeze the smoke-only numerical values;
-5. build the production D042 calibration runner/output layer;
-6. run full 500 scale + 500 threshold no-social samples with namespaces 2026090201/2026090202;
-7. persist and freeze final `c_ret`, `c_bel`, `c_F`, and `c_CID`;
-8. build paired market-output persistence and a small confirmatory paired smoke;
-9. only then submit large confirmatory topology Monte Carlo.
+Expected next checkpoint:
 
-The calibration and confirmatory seed namespaces must remain disjoint. No calibration step may inspect or optimise the eventual R/SW/SF ranking.
+    589 passed
 
-Formal stability remains separate: equilibrium X*, complete Jacobian J*, `spr(J*)`, Lyapunov analysis. The spectral radius of row-stochastic W is never the market-stability criterion.
+## Current gate
+
+1. Verify 589 tests on Iridis.
+2. Do not launch the production script directly on `loginX...`.
+3. Submit/run `scripts/run_refined_market_calibration.py` inside an Iridis compute allocation or batch job.
+4. Because the runner checkpoints every replication, an interrupted job can be resumed safely.
+5. When 500+500 completes, inspect and freeze numerical `c_ret`, `c_bel`, `c_F`, and `c_CID`.
+6. Only then build the paired confirmatory market runner and small paired smoke.
+7. Large confirmatory topology Monte Carlo remains prohibited until that paired smoke passes.
+
+Formal stability remains separate: equilibrium X*, complete Jacobian J*, `spr(J*)`, Lyapunov analysis. Spectral radius of row-stochastic W is never the market-stability criterion.
