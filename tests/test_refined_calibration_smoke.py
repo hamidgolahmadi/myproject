@@ -1,5 +1,8 @@
 from dataclasses import fields, replace
 import json
+from pathlib import Path
+import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -19,6 +22,9 @@ from src.experiments.refined.market_calibration import (
 )
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _small_baseline():
     base = first_refined_baseline_specification()
     return replace(base, n_agents=8, k=2, hub_q=2, p_sw=0.25)
@@ -35,6 +41,22 @@ def smoke_result():
         ),
         baseline=_small_baseline(),
     )
+
+
+def test_direct_calibration_smoke_script_can_import_project_package():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "run_refined_no_social_calibration_smoke.py"),
+            "--help",
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "D042 calibration smoke" in completed.stdout
 
 
 def test_default_smoke_protocol_values():
