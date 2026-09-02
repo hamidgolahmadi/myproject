@@ -3,8 +3,8 @@
 Status: **PROVISIONAL — NOT YET FROZEN**
 
 This note records the first numerical candidate for the refined homogeneous
-market model. It is not a report equation and must pass a scale/non-degeneracy
-smoke experiment before becoming a binding design decision.
+market model. It is not a report equation and must pass pre-freeze scale checks
+before becoming a binding design decision.
 
 ## Candidate dimensions
 
@@ -34,7 +34,7 @@ configuration.
     sigma_p      = 0.001
     gamma_R      = 0.9
     beta         = 1.0
-    sigma_0      = 1e-6
+    sigma_0      = 1e-6   # under explicit pre-freeze review
 
 ## Provenance
 
@@ -61,14 +61,14 @@ This is a unit-conversion anchor, not empirical calibration.
 fundamental anchor absent from the historical pilot price law.
 
 `x_bar=5.0` is new because the refined model separates the one-period tanh
-bound from a cumulative inventory bound. It is deliberately loose enough that
-inventory constraints should not dominate every period, but this must be
-checked rather than assumed.
+bound from a cumulative inventory bound.
 
-`sigma_0=1e-6` is a small positive reputation-dispersion floor in the units of
-reputation. It prevents a zero denominator at initially equal reputations while
-becoming negligible once economically meaningful local reputation dispersion
-appears. Its adequacy must be checked in the scale smoke.
+`sigma_0` is the positive floor in the regularised local reputation dispersion
+in Equation (58). The report states that the floor prevents an almost
+degenerate local reputation distribution from producing an artificial
+numerical explosion after standardisation. The original provisional value
+`1e-6` was chosen only as a minimal numerical floor and is therefore subject to
+an explicit scale sensitivity check before freeze.
 
 ## Provisional neutral initialisation
 
@@ -100,19 +100,79 @@ uses `B=0`, starting from arbitrary price mispricing or arbitrary belief
 dispersion would mechanically contaminate the measured early path. Private
 signal and belief noise begin from period 1 under the normal transition law.
 
-## Required smoke checks before freeze
+## First paired scale smoke — completed 2026-09-02
 
-Do not freeze this candidate or run the D042 500+500 calibration until a small
-paired market smoke experiment reports, without tuning to topology rankings:
+Design:
 
-- return and mispricing distributions;
-- signed net-flow per agent;
-- desired-action magnitude / tanh saturation;
-- inventory-bound contact frequency;
-- reputation magnitude relative to `sigma_0`;
-- realised-influence HHI / overlap / mobility;
-- numerical finiteness for all paths;
-- the alpha=0 topology-null property under the same candidate.
+    experiment_seed = 2026090203
+    paired replications = 5
+    topology treatments per replication = 3
+    total runs = 15
+    N = 100
+    T = 1000
+
+The smoke pooled all treatment-labelled runs and was used only for absolute
+scale/non-degeneracy assessment, not topology ranking.
+
+Pooled medians across 15 runs:
+
+    return_std                              0.00342286
+    mean_abs_return                         0.00271065
+    max_abs_return                          0.0109005
+    rms_mispricing                          0.0685422
+    max_abs_mispricing                      0.219996
+    mean_abs_flow_per_agent                 0.0784241
+    rms_flow_per_agent                      0.101498
+    desired_action_abs_p95                  0.304871
+    desired_action_saturation_fraction      0.0
+    execution_projection_fraction           0.14608
+    inventory_boundary_fraction             0.14608
+    median_local_reputation_std              0.000672808
+    median_reputation_scale_to_sigma0        672.808
+    mean_attention_mobility                  0.0492363
+    max_attention_mobility                   0.664115
+    final_attention_distance_from_initial    0.379522
+
+Interpretation before any topology analysis:
+
+- return, mispricing, and signed order-flow variation are non-zero and finite;
+- desired actions are well away from tanh saturation;
+- the inventory bound is economically active but not mechanically binding in
+  every period;
+- the main unresolved scale issue is `sigma_0`: typical local reputation
+  dispersion is hundreds of times larger than the provisional floor, so the
+  floor becomes negligible almost immediately once reputation differences
+  appear.
+
+Therefore the rest of the parameter vector is not currently flagged for
+revision, but the baseline cannot yet be frozen because `sigma_0=1e-6` needs a
+controlled OAT scale check.
+
+## sigma_0 sensitivity gate
+
+A common-random-number OAT smoke is pre-specified over:
+
+    sigma_0 in {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+
+All graph, shock, and initial-state randomness is reused across candidate
+values. The output is pooled across topology labels and reports only absolute
+scale diagnostics. It must not be used to tune the model toward a preferred
+R/SW/SF ranking.
+
+The purpose is to determine whether the reputation floor is functionally
+negligible, excessively damped, or operating on a scale comparable with the
+realised local reputation dispersion. Market return/mispricing/flow diagnostics
+are reported alongside attention mobility to ensure that changing the floor
+does not create a new degeneracy elsewhere.
+
+## Remaining gate before freeze
+
+Do not freeze this candidate or run the D042 500+500 calibration until:
+
+1. the sigma_0 sensitivity smoke is completed and interpreted;
+2. one value is selected on scale/regularisation grounds only;
+3. the selected complete baseline vector is recorded as a frozen decision;
+4. the alpha=0 topology-null property is rechecked under that frozen vector.
 
 The smoke stage is a scale/non-degeneracy check, not a search for a topology
 ranking. If the candidate is revised, the reason must be documented before any
