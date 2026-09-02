@@ -9,6 +9,12 @@ from .baseline_specification import (
     generate_neutral_nonnetwork_initial_conditions,
 )
 from .calibration import StructuralValidationCalibration, first_structural_validation_calibration
+from .calibration_smoke import (
+    NoSocialCalibrationSmokeProtocol,
+    NoSocialCalibrationSmokeResult,
+    run_no_social_calibration_smoke,
+    write_no_social_calibration_smoke,
+)
 from .cid import (
     CIDReferenceScales,
     CIDWeights,
@@ -101,6 +107,8 @@ __all__ = [
     "MarketScaleSmokeProtocol",
     "MarketScaleSmokeRecord",
     "MarketScaleSmokeResult",
+    "NoSocialCalibrationSmokeProtocol",
+    "NoSocialCalibrationSmokeResult",
     "NonNetworkInitialConditions",
     "OperationalStabilisationResult",
     "PairedReplicationPlan",
@@ -157,6 +165,7 @@ __all__ = [
     "rolling_cid",
     "rolling_cid_components",
     "run_first_refined_baseline_scale_smoke",
+    "run_no_social_calibration_smoke",
     "run_sigma0_sensitivity_smoke",
     "run_structural_ensemble",
     "standardise_cid_components",
@@ -164,5 +173,6 @@ __all__ = [
     "summarise_market_scale_smoke",
     "threshold_exceedance_rate",
     "time_averaged_belief_variance",
+    "write_no_social_calibration_smoke",
     "write_structural_result",
 ]
