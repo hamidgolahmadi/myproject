@@ -188,6 +188,31 @@ At the frozen value `sigma_0=5e-4`, pooled medians were approximately:
 
 The value is frozen because the floor is of the same order as realised local reputation dispersion: it meaningfully regularises near-degenerate local reputation distributions without dominating them or shutting down adaptive attention.  Selection used pooled absolute diagnostics only, never topology rankings.
 
+## Report revision TODO — sigma_0 sensitivity appendix
+
+When the doctoral report is next revised, add the full pre-freeze `sigma_0` sensitivity table to an Appendix / implementation-robustness section.
+
+Required grid:
+
+    sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+
+The Appendix table should report, at minimum, for each `sigma_0`:
+
+    median local reputation dispersion / sigma_0
+    mean attention mobility
+    max attention mobility
+    final W distance from W_0
+    return SD
+    RMS mispricing
+    RMS signed net flow per agent
+    desired-action p95
+    execution-projection fraction
+    inventory-boundary fraction
+
+Use the already completed common-random-number sensitivity run with experiment seed `2026090203` and 5 paired replications. The table is a regularisation-sensitivity diagnostic, not a topology-ranking table.
+
+The main text should retain only a concise explanation of why `sigma_0=5e-4` was chosen; the complete numerical sensitivity evidence belongs in the Appendix.
+
 ## Immediate gate
 
 New D043 implementation/tests are committed but not yet verified on Iridis.
