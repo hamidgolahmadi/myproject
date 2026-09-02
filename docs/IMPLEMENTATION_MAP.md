@@ -135,7 +135,7 @@ This freezes the METHOD only. Numerical scales and c_CID must not be produced un
     src/experiments/refined/baseline_specification.py
     docs/REFINED_BASELINE_CANDIDATE.md
 
-Status: PROVISIONAL, TESTED at 474-test checkpoint, NOT YET FROZEN.
+Status: PROVISIONAL, NOT YET FROZEN.
 
 Candidate dimensions:
 
@@ -162,7 +162,7 @@ Candidate parameters:
     sigma_p      = 0.001
     gamma_R      = 0.9
     beta         = 1.0
-    sigma_0      = 1e-6
+    sigma_0      = 1e-6   # under explicit pre-freeze review
 
 Provisional non-network initialisation:
 
@@ -174,59 +174,71 @@ Provisional non-network initialisation:
 
 W0 remains graph-supported uniform attention.
 
-## Pre-freeze baseline scale smoke — NEW
+## Pre-freeze baseline scale smoke — VERIFIED AND RUN
 
     src/experiments/refined/market_smoke.py
     scripts/run_refined_baseline_scale_smoke.py
     tests/test_refined_market_smoke.py
 
-Default smoke design:
+Verified at the 504-test checkpoint and executed on Iridis with five paired replications / 15 treatment runs.
+
+Key pooled medians:
+
+    return_std                              0.00342286
+    rms_mispricing                          0.0685422
+    rms_flow_per_agent                      0.101498
+    desired_action_abs_p95                  0.304871
+    desired_action_saturation_fraction      0.0
+    execution_projection_fraction           0.14608
+    inventory_boundary_fraction             0.14608
+    median_local_reputation_std              0.000672808
+    median_reputation_scale_to_sigma0        672.808
+    mean_attention_mobility                  0.0492363
+    max_attention_mobility                   0.664115
+    final_attention_distance_from_initial    0.379522
+
+Interpretation: return/mispricing/flow scales are finite and non-degenerate, actions are not tanh-saturated, and inventory bounds are active but not mechanically dominant. The unresolved pre-freeze parameter is sigma_0 because the provisional floor is hundreds of times smaller than typical local reputation dispersion.
+
+## sigma_0 common-random-number sensitivity gate — NEW
+
+    src/experiments/refined/sigma0_sensitivity.py
+    scripts/run_refined_sigma0_sensitivity_smoke.py
+    tests/test_refined_sigma0_sensitivity.py
+
+Purpose: evaluate only the regularisation scale of Eq. (58) before freezing the baseline.
+
+Controlled OAT grid:
+
+    sigma_0 in {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+
+Design:
 
     experiment_seed = 2026090203
     paired replications = 5
-    R/SW/SF treatments per replication
-    candidate N = 100
-    candidate T = 1000
+    same replication ids for every sigma_0
+    graph/shock/initial-state randomness common across sigma_0 values
+    only sigma_0 changes
 
-The smoke seed namespace is disjoint from D042 scale/threshold calibration seeds and must not be reused for confirmatory evaluation.
+Output is pooled across topology labels. No topology contrasts/rankings are computed. Reported metrics include reputation dispersion relative to sigma_0, attention mobility/distance, return scale, mispricing, signed flow and inventory projection.
 
-The smoke consumes canonical `SimulationResult` objects and records absolute scale/non-degeneracy diagnostics. It does not reproduce any economic transition equation.
+New test file contributes 24 cases.
 
-Per-run diagnostics:
+Expected checkpoint:
 
-    return sample SD / mean absolute / maximum absolute
-    RMS / maximum absolute mispricing
-    mean absolute / RMS signed net flow per agent
-    95th percentile |desired action|
-    fraction |desired action| >= 0.99
-    fraction executed action differs from desired action
-    fraction realised positions at the inventory boundary
-    median / maximum raw local reputation dispersion
-    median local reputation dispersion divided by sigma_0
-    mean / max RMS attention mobility
-    final RMS W distance from W0
-
-Raw records retain topology labels for anomaly tracing. The primary summary pools all smoke runs and computes no topology contrast or ranking.
-
-Only mathematical non-degeneracy is enforced: finite metrics plus nonzero return and order-flow variation. No economic acceptance bands are hard-coded.
-
-New test file contributes 30 cases.
-
-Expected next checkpoint:
-
-    504 tests
+    528 tests
 
 ## Current gate before calibration / confirmatory Monte Carlo
 
 Required order:
 
-1. verify 504-test checkpoint;
-2. run `python scripts/run_refined_baseline_scale_smoke.py`;
-3. inspect absolute scale only, not topology rankings;
-4. if non-degenerate and economically defensible, promote candidate baseline to a frozen decision;
-5. run small no-social D042 calibration smoke;
-6. run full D042 500+500 calibration and persist c_ret, c_bel, c_F, c_CID;
-7. build paired market-output persistence layer and small paired smoke;
-8. only then submit large confirmatory topology Monte Carlo.
+1. verify 528-test checkpoint;
+2. run `python scripts/run_refined_sigma0_sensitivity_smoke.py`;
+3. select sigma_0 on regularisation/scale grounds only;
+4. document and freeze the complete baseline vector if the selected specification remains non-degenerate;
+5. recheck alpha=0 topology-null property under the frozen vector;
+6. run small no-social D042 calibration smoke;
+7. run full D042 500+500 calibration and persist c_ret, c_bel, c_F, c_CID;
+8. build paired market-output persistence layer and small paired smoke;
+9. only then submit large confirmatory topology Monte Carlo.
 
 Formal stability remains separate: equilibrium X*, complete Jacobian J*, spr(J*), Lyapunov analysis. The spectral radius of row-stochastic W is never the market-stability criterion.
