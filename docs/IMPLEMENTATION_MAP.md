@@ -37,6 +37,7 @@ Experiment/evaluation layer:
         action_covariance.py
         cid.py
         cid_events.py
+        influence_metrics.py
 
 Rule: economic transition equations live only under `src/model/refined/`. Evaluation modules consume completed `SimulationResult` objects and must not duplicate dynamics.
 
@@ -47,16 +48,6 @@ Rule: economic transition equations live only under `src/model/refined/`. Evalua
 Persistent state:
 
     X_t = (theta_t, b_t, x_t, p_t, R_t, W_t)
-
-Implementation:
-
-    src/model/refined/state.py
-    RefinedState
-
-Innovation bundle:
-
-    src/model/refined/shocks.py
-    PeriodShocks
 
 Binding Eq. (39) coordinator:
 
@@ -237,77 +228,80 @@ API:
     operational_stabilisation(...)
     threshold_exceedance_rate(...)
 
-### Eq. (247)
+Eq. (247): OR across `CID_t > c_CID` and active raw-component guardrails.
 
-Run-level threshold-exceedance indicator is true if any rolling endpoint has:
+Eq. (248): topology-level mean of run-level exceedance indicators.
 
-    CID_t > c_CID
+Eq. (249): peak CID and fraction of rolling windows satisfying `CID_t > c_CID`; component guardrail crossings do not enter this duration fraction.
 
-or breaches any active raw-component guardrail:
+Eq. (250): first start period with `L_stab` consecutive windows satisfying CID and every active guardrail. Exceedance uses strict `>` and stabilisation uses `<=`. Inactive guardrails map to `+infinity`. If no qualifying full block exists, stabilisation is right-censored with `stabilisation_period=None`.
 
-    V_ret,t > c_ret^max
-    B_bel,t > c_bel^max
-    Q_F,t > c_F^max
-
-Inactive guardrails are represented by `None` and evaluated as `+infinity`.
-
-### Eq. (248)
-
-    threshold_exceedance_rate(...)
-
-returns the mean of run-level exceedance indicators.
-
-### Eq. (249)
-
-`CIDRunClassification` records:
-
-    peak_cid = max_t CID_t
-    cid_exceedance_duration_share = mean_t I{CID_t > c_CID}
-
-Important: the duration share is based on CID crossings only; component-guardrail breaches do not enter this fraction.
-
-### Eq. (250)
-
-    operational_stabilisation(...)
-
-returns the first rolling endpoint `t` for which CID and all active component guardrails remain inside the admissible region for `L_stab` consecutive periods.
-
-Boundary convention follows the report exactly:
-
-    exceedance uses `>`
-    stabilisation admissibility uses `<=`
-
-First-stage default:
+First-stage report default:
 
     L_stab = 50
 
-If no complete qualifying block exists:
-
-    stabilisation_period = None
-    right_censored = True
-
-No artificial zero or fabricated stabilisation time is assigned. The result also records the last eligible start period for which a full `L_stab` block could be observed.
-
 No numerical `c_CID` or component guardrail is hard-coded.
 
-Status: IMPLEMENTED; awaiting Iridis verification. Expected checkpoint: 374 tests.
+Status: VERIFIED at 374-test checkpoint.
 
 ---
 
-## 10. Realised-influence mechanisms, Eqs. (251)-(267)
+## 10. Realised-influence and common-exposure mechanisms, Eqs. (251)-(265)
 
-Next implementation stage:
+Implementation:
 
     src/experiments/refined/influence_metrics.py
 
-Planned quantities:
+API:
 
-    Eqs. (251)-(253) normalised attention entropy and effective number of sources
-    Eqs. (254)-(257) realised influence column shares, HHI, structural-hub influence share
-    Eqs. (258)-(264) attention overlap and equivalent matrix identity
-    Eq. (265) RMS attention mobility
+    structural_hub_nodes(...)
+    attention_entropy(...)
+    normalised_attention_entropy(...)
+    effective_number_of_sources(...)
+    realised_influence_shares(...)
+    realised_influence_hhi(...)
+    realised_hub_influence_share(...)
+    attention_overlap(...)
+    attention_mobility(...)
+    RealisedInfluencePoint
+    RealisedInfluencePath
+    realised_influence_path(...)
 
-Eqs. (266)-(267), KL deviation from a transition prior, remain deferred with the attention-inertia extension because the current first-stage attention rule is frictionless.
+Mapping:
+
+    Eq. (251) H_tilde_i,t = H(w_i,t) / log(d_i^out)
+    Eq. (252) N_eff_i,t = exp(H(w_i,t))
+    Eq. (253) network means of H_tilde and N_eff
+    Eq. (254) s^I_j,t = (1/N) sum_i w_ij,t
+    Eq. (255) source influence shares sum to one
+    Eq. (256) HHI^I_t = sum_j (s^I_j,t)^2
+    Eq. (257) S^I_q,t = sum_{j in H_q(G)} s^I_j,t
+    Eq. (258) pairwise row-attention inner product
+    Eq. (259) aggregate average pairwise overlap
+    Eqs. (260)-(264) equivalent matrix/Frobenius overlap identity
+    Eq. (265) M^W_t = ||W_t-W_{t-1}||_F / sqrt(N)
+
+`H_q(G)` is always selected from directed in-degree in the feasible graph, never from realised attention. The report leaves cutoff ties unspecified; implementation resolves ties by decreasing in-degree then increasing node label as a deterministic reproducibility convention only.
+
+For fixed-out-degree neutral uniform attention:
+
+    W_0 = G/K
+
+so the implementation/tests enforce:
+
+    s^I_j,0 = d_j^in / (N K)
+
+and therefore:
+
+    S^I_q,0 = S^G_q.
+
+The path evaluator reports periods `t=1,...,T`; concentration and overlap use `W_t`, while mobility uses `(W_{t-1},W_t)`, including the first change from `W_0` to `W_1`.
+
+Agent-level entropy/effective-source arrays and source-level influence shares are retained alongside scalar network summaries.
+
+Eqs. (266)-(267), KL deviation from a transition prior, remain DEFERRED with the attention-inertia extension because the current first-stage rule is frictionless (`tau=0`).
+
+Status: IMPLEMENTED; awaiting Iridis verification. Expected checkpoint: 409 tests.
 
 ---
 
@@ -339,18 +333,20 @@ Verified:
     run-level market outcomes
     rolling action covariance Eqs. (239)-(240)
     CID Eqs. (241)-(246)
+    threshold/stabilisation Eqs. (247)-(250)
 
 Still required:
 
-    verify Eqs. (247)-(250)
-    implement/verify realised-influence Eqs. (251)-(265)
+    verify realised-influence Eqs. (251)-(265)
     freeze market-evaluation calibration inputs before topology evaluation:
         L
+        separate calibration sample/seeds
         CID reference scales
         CID weights
         c_CID
         optional component guardrails
         L_stab=50
+    build/verify paired market-run persistence and a small smoke run
 
 Calibration must be independent of observed topology rankings.
 
