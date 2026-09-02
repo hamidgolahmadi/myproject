@@ -907,3 +907,91 @@ The scale-calibration seeds, threshold-calibration seeds, and later
 confirmatory topology-evaluation seeds must all be disjoint. Calibration must
 never inspect or optimise the eventual Random/Small-World/Hub topology
 ranking.
+
+---
+
+## D043 — First Refined Baseline Market Specification
+
+STATUS: FROZEN FOR D042 CALIBRATION AND FIRST CONFIRMATORY FIXED-TOPOLOGY RUNS
+
+The first maintained homogeneous refined market specification is:
+
+    N = 100
+    K = 6
+    T = 1000
+    q = 5
+    p_sw = 0.02
+    a0 = 1.0
+
+with:
+
+    rho_theta    = 0.985
+    sigma_theta  = 0.025
+    v_bar        = 0.0
+    psi          = 1.0
+    sigma_s      = 0.06
+    sigma_b      = 0.025
+    alpha        = 0.75
+    kappa        = 2.4
+    x_bar        = 5.0
+    chi          = 0.02
+    lambda_price = 0.0002
+    sigma_p      = 0.001
+    gamma_R      = 0.9
+    beta         = 1.0
+    sigma_0      = 0.0005
+
+The frozen non-network initial-condition rule is:
+
+    theta_0 ~ N(0, sigma_theta^2/(1-rho_theta^2))
+    b_i,0 = theta_0 for every i
+    p_0 = v_bar + psi theta_0
+    x_i,0 = 0
+    R_i,0 = 0
+
+`W_0(G)` remains topology-specific uniform graph-supported attention under
+D018/D025.
+
+Numerical provenance:
+
+- information-process and behavioural values may use the legacy pilot only as
+  anchors where roles and units remain comparable; legacy code never overrides
+  the refined equations;
+- `kappa=2.4` preserves the historical effective local tanh slope rather than
+  copying a raw coefficient with a different gate;
+- the pilot level-price coefficients are mapped to refined normalised return
+  units using the reference level 100, giving `lambda_price=0.0002` and
+  `sigma_p=0.001`;
+- `chi=0.02` and `x_bar=5.0` are explicit refined design choices associated
+  with the new fundamental anchor and separate cumulative inventory bound.
+
+Pre-freeze validation:
+
+- a topology-blind 5-paired-replication scale smoke found finite,
+  non-degenerate returns, mispricing, signed order flow, desired actions, and
+  inventory use, with zero near-tanh-saturation in the observed smoke paths;
+- the original candidate `sigma_0=1e-6` was much smaller than typical realised
+  local reputation dispersion and therefore did not meaningfully regularise
+  the near-degenerate region targeted by Eq. (58);
+- a common-random-number OAT smoke compared
+  `sigma_0={1e-6,1e-4,5e-4,1e-3,2e-3}` while holding graph realisations,
+  shock paths, initial states, and every other parameter fixed;
+- return volatility, mispricing, order flow, desired-action scale, and
+  inventory projection were essentially invariant across that grid, whereas
+  attention mobility declined smoothly as the floor became economically
+  relevant;
+- `sigma_0=5e-4` is frozen because it is of the same order as realised local
+  reputation dispersion.  It therefore regularises an almost degenerate local
+  reputation distribution without dominating realised dispersion or shutting
+  down adaptive attention.
+
+This choice was based on pooled absolute scale diagnostics only.  It did not
+inspect or optimise topology rankings or confirmatory treatment effects.
+
+Canonical documentation:
+
+    docs/REFINED_BASELINE.md
+
+The next allowed market step is a small end-to-end no-social D042 calibration
+smoke under this frozen specification.  The full 500+500 calibration remains
+prohibited until that smoke is verified.
