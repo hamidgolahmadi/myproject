@@ -68,7 +68,7 @@ Mapping:
 
 Status: VERIFIED.
 
-Important conventions:
+Conventions:
 
     return volatility uses sample SD
     belief dispersion uses population cross-sectional variance
@@ -100,7 +100,7 @@ Status: VERIFIED.
 
     src/experiments/refined/market_calibration.py
 
-Method:
+Frozen method:
 
     T = 1000
     B = 0
@@ -121,33 +121,17 @@ Method:
     baseline component guardrails = inactive
     L_stab = 50
 
-Status: VERIFIED at 445-test checkpoint.
-
-This freezes the calibration METHOD only. Numerical scales and `c_CID` are produced later under the frozen D043 market specification.
+Status: METHOD VERIFIED. Numerical scales and `c_CID` are not yet produced.
 
 ## Frozen first refined baseline — D043
 
-Canonical implementation:
-
     src/experiments/refined/baseline_specification.py
-
-Canonical documentation:
-
     docs/REFINED_BASELINE.md
-
-Archived candidate history:
-
-    docs/REFINED_BASELINE_CANDIDATE.md
 
 Canonical API:
 
     RefinedBaselineSpecification
     first_refined_baseline_specification()
-
-Compatibility aliases:
-
-    RefinedBaselineCandidate
-    first_refined_baseline_candidate()
 
 Frozen design:
 
@@ -186,9 +170,7 @@ Frozen non-network initialisation:
 
 W0 remains graph-supported uniform attention.
 
-The original candidate used `sigma_0=1e-6`.  A topology-blind scale smoke and a common-random-number OAT sensitivity over `{1e-6,1e-4,5e-4,1e-3,2e-3}` showed that market-scale outcomes were essentially invariant while attention regularisation changed smoothly.  `sigma_0=5e-4` is frozen because it is comparable to realised local reputation dispersion, so the Eq. (58) floor is meaningful near degeneracy without dominating the attention signal.
-
-D043 code/test changes await the next Iridis checkpoint. Expected total: 530 tests.
+Status: VERIFIED at 530-test checkpoint.
 
 ## Pre-freeze smoke infrastructure — retained for provenance/robustness
 
@@ -200,23 +182,67 @@ D043 code/test changes await the next Iridis checkpoint. Expected total: 530 tes
     scripts/run_refined_sigma0_sensitivity_smoke.py
     tests/test_refined_sigma0_sensitivity.py
 
-These modules consume canonical simulations and compute absolute diagnostics only. They do not estimate topology treatment effects.
+These modules compute absolute diagnostics only and never estimate topology treatment effects.
 
-Verified smoke checkpoint before D043 freeze:
+## End-to-end no-social calibration smoke — NEW
 
-    528 passed in 8.31s
+    src/experiments/refined/calibration_smoke.py
+    scripts/run_refined_no_social_calibration_smoke.py
+    tests/test_refined_calibration_smoke.py
+
+Purpose: verify the complete D043 -> alpha=0 -> simulation -> rolling CID components -> reference-scale estimation -> independent peak-CID threshold estimation -> persistence path before the full D042 500+500 calibration.
+
+Smoke-only namespaces:
+
+    scale_seed     = 2026090204
+    threshold_seed = 2026090205
+
+These are disjoint from the final D042 namespaces because smoke outputs are inspected during development and must never be reused in the final calibration sample.
+
+Default smoke:
+
+    scale runs       = 3
+    threshold runs   = 3
+    alpha            = 0
+    N                = 100
+    T                = 1000
+    B                = 0
+    L                = 50
+    endpoints/run    = 951
+
+Calibration support convention:
+
+- generate one canonical directed Random fixed-out-degree G per replication;
+- initialise W0 uniformly on that G;
+- retain full adaptive-attention runtime for architecture validity;
+- at alpha=0, G/W do not enter beliefs or market outcomes;
+- do not generate R/SW/SF triplets or use topology labels as extra calibration observations.
+
+The persisted smoke artifact is:
+
+    results/refined/no_social_calibration_smoke/calibration_smoke.json
+
+and must contain:
+
+    final_calibration = false
+
+so it cannot be confused with the later frozen 500+500 artifact.
+
+New tests: 37 cases. Expected next checkpoint: 567 tests.
 
 ## Current gate before full calibration / confirmatory Monte Carlo
 
 Required order:
 
-1. verify D043 implementation at expected 530-test checkpoint;
-2. build a small end-to-end no-social D042 calibration smoke under D043;
-3. validate positive rolling component medians, finite CID paths, run-level peak construction, disjoint scale/threshold seeds, expected rolling endpoint counts, and calibration-artifact persistence;
-4. only then run the full D042 500 scale + 500 threshold no-social samples;
-5. persist and freeze numerical `c_ret`, `c_bel`, `c_F`, and `c_CID`;
-6. build paired market-output persistence layer and a small confirmatory paired smoke;
-7. only then submit large confirmatory topology Monte Carlo.
+1. verify 567-test checkpoint;
+2. run the small no-social calibration smoke;
+3. check alpha=0, 951 endpoints, positive scales, finite CID peaks/threshold, and smoke artifact persistence;
+4. do not freeze the smoke-only numerical values;
+5. build the production D042 calibration runner/output layer;
+6. run full 500 scale + 500 threshold no-social samples with namespaces 2026090201/2026090202;
+7. persist and freeze final `c_ret`, `c_bel`, `c_F`, and `c_CID`;
+8. build paired market-output persistence and a small confirmatory paired smoke;
+9. only then submit large confirmatory topology Monte Carlo.
 
 The calibration and confirmatory seed namespaces must remain disjoint. No calibration step may inspect or optimise the eventual R/SW/SF ranking.
 
