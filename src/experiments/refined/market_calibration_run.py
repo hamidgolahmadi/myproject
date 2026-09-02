@@ -13,12 +13,18 @@ CID components.  Production calibration therefore carries fixed graph-supported
 attention forward (``adaptive_attention=False``); exact equivalence to the fully
 adaptive path is regression-tested under common graph/shock/initial-state
 randomness.
+
+Every checkpoint is bound to a deterministic fingerprint of the complete D042
+protocol and D043 baseline.  Threshold checkpoints are additionally bound to
+the realised reference scales.  This prevents stale files from a different
+specification from being silently reused.
 """
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import csv
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -77,6 +83,46 @@ def _atomic_json(path: Path, payload: dict) -> None:
     os.replace(temporary, path)
 
 
+def _configuration_payload(
+    protocol: MarketEvaluationCalibrationProtocol,
+    baseline: RefinedBaselineSpecification,
+) -> dict:
+    return {
+        "protocol": asdict(protocol),
+        "baseline": {
+            "n_agents": baseline.n_agents,
+            "k": baseline.k,
+            "horizon": baseline.horizon,
+            "hub_q": baseline.hub_q,
+            "p_sw": baseline.p_sw,
+            "a0": baseline.a0,
+            "parameters": asdict(baseline.parameters),
+        },
+    }
+
+
+def calibration_configuration_fingerprint(
+    protocol: MarketEvaluationCalibrationProtocol,
+    baseline: RefinedBaselineSpecification,
+) -> str:
+    """Return a stable SHA-256 fingerprint of all calibration-defining inputs."""
+
+    _validate_inputs(protocol, baseline)
+    encoded = json.dumps(
+        _configuration_payload(protocol, baseline),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _scales_fingerprint(scales: CIDReferenceScales) -> str:
+    if not isinstance(scales, CIDReferenceScales):
+        raise TypeError("scales must be CIDReferenceScales")
+    encoded = json.dumps(asdict(scales), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _scale_checkpoint_path(output_dir: Path, replication_id: int) -> Path:
     return output_dir / "scale" / f"replication_{replication_id:04d}.npz"
 
@@ -98,6 +144,7 @@ def _write_scale_checkpoint(
     *,
     replication_id: int,
     experiment_seed: int,
+    configuration_fingerprint: str,
     return_values: np.ndarray,
     belief_values: np.ndarray,
     flow_values: np.ndarray,
@@ -109,6 +156,7 @@ def _write_scale_checkpoint(
             handle,
             replication_id=np.asarray(replication_id, dtype=np.int64),
             experiment_seed=np.asarray(experiment_seed, dtype=np.uint64),
+            configuration_fingerprint=np.asarray(configuration_fingerprint),
             return_values=return_values,
             belief_values=belief_values,
             flow_values=flow_values,
@@ -121,11 +169,13 @@ def _read_scale_checkpoint(
     *,
     replication_id: int,
     experiment_seed: int,
+    configuration_fingerprint: str,
     expected_points: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     with np.load(checkpoint, allow_pickle=False) as payload:
         stored_replication = int(payload["replication_id"])
         stored_seed = int(payload["experiment_seed"])
+        stored_fingerprint = str(payload["configuration_fingerprint"].item())
         arrays = (
             np.asarray(payload["return_values"], dtype=float),
             np.asarray(payload["belief_values"], dtype=float),
@@ -133,6 +183,8 @@ def _read_scale_checkpoint(
         )
     if stored_replication != replication_id or stored_seed != experiment_seed:
         raise ValueError(f"scale checkpoint metadata mismatch: {checkpoint}")
+    if stored_fingerprint != configuration_fingerprint:
+        raise ValueError(f"scale checkpoint specification mismatch: {checkpoint}")
     if any(array.shape != (expected_points,) for array in arrays):
         raise ValueError(f"scale checkpoint has unexpected shape: {checkpoint}")
     if any(not np.all(np.isfinite(array)) for array in arrays):
@@ -172,6 +224,7 @@ def run_scale_calibration_stage(
 
     output_dir = Path(output_dir)
     expected_points = protocol.expected_rolling_points_per_run
+    config_fingerprint = calibration_configuration_fingerprint(protocol, baseline)
     all_return: list[np.ndarray] = []
     all_belief: list[np.ndarray] = []
     all_flow: list[np.ndarray] = []
@@ -184,6 +237,7 @@ def run_scale_calibration_stage(
                 checkpoint,
                 replication_id=replication_id,
                 experiment_seed=protocol.scale_calibration_seed,
+                configuration_fingerprint=config_fingerprint,
                 expected_points=expected_points,
             )
         else:
@@ -201,6 +255,7 @@ def run_scale_calibration_stage(
                 checkpoint,
                 replication_id=replication_id,
                 experiment_seed=protocol.scale_calibration_seed,
+                configuration_fingerprint=config_fingerprint,
                 return_values=arrays[0],
                 belief_values=arrays[1],
                 flow_values=arrays[2],
@@ -222,8 +277,10 @@ def run_scale_calibration_stage(
     _atomic_json(
         output_dir / _SCALE_ARTIFACT_NAME,
         {
-            "final_calibration": True,
+            "final_calibration": False,
+            "stage_complete": True,
             "stage": "scale",
+            "configuration_fingerprint": config_fingerprint,
             "calibration_alpha": 0.0,
             "scale_seed": protocol.scale_calibration_seed,
             "n_scale_replications": protocol.n_scale_replications,
@@ -234,11 +291,24 @@ def run_scale_calibration_stage(
     return scales
 
 
-def load_reference_scales(output_dir: str | Path) -> CIDReferenceScales:
+def load_reference_scales(
+    output_dir: str | Path,
+    *,
+    protocol: MarketEvaluationCalibrationProtocol | None = None,
+    baseline: RefinedBaselineSpecification | None = None,
+) -> CIDReferenceScales:
     """Load and validate the completed scale-stage artifact."""
 
+    protocol = protocol or first_market_evaluation_calibration_protocol()
+    baseline = baseline or first_refined_baseline_specification()
+    _validate_inputs(protocol, baseline)
     path = Path(output_dir) / _SCALE_ARTIFACT_NAME
     payload = json.loads(path.read_text(encoding="utf-8"))
+    expected_fingerprint = calibration_configuration_fingerprint(protocol, baseline)
+    if payload.get("configuration_fingerprint") != expected_fingerprint:
+        raise ValueError("reference-scale artifact does not match the requested D042/D043 specification")
+    if payload.get("stage_complete") is not True:
+        raise ValueError("reference-scale artifact is not marked complete")
     values = payload["reference_scales"]
     return CIDReferenceScales(
         return_scale=values["c_ret"],
@@ -265,10 +335,12 @@ def run_threshold_calibration_stage(
         raise TypeError("resume must be a bool")
     output_dir = Path(output_dir)
     if scales is None:
-        scales = load_reference_scales(output_dir)
+        scales = load_reference_scales(output_dir, protocol=protocol, baseline=baseline)
     if not isinstance(scales, CIDReferenceScales):
         raise TypeError("scales must be CIDReferenceScales")
 
+    config_fingerprint = calibration_configuration_fingerprint(protocol, baseline)
+    scales_fingerprint = _scales_fingerprint(scales)
     peaks: list[float] = []
     for replication_id in range(protocol.n_threshold_replications):
         checkpoint = _threshold_checkpoint_path(output_dir, replication_id)
@@ -279,6 +351,10 @@ def run_threshold_calibration_stage(
                 raise ValueError(f"threshold checkpoint replication mismatch: {checkpoint}")
             if payload["experiment_seed"] != protocol.threshold_calibration_seed:
                 raise ValueError(f"threshold checkpoint seed mismatch: {checkpoint}")
+            if payload.get("configuration_fingerprint") != config_fingerprint:
+                raise ValueError(f"threshold checkpoint specification mismatch: {checkpoint}")
+            if payload.get("scales_fingerprint") != scales_fingerprint:
+                raise ValueError(f"threshold checkpoint reference-scale mismatch: {checkpoint}")
             peak = float(payload["peak_cid"])
         else:
             if checkpoint.exists() and not resume:
@@ -301,6 +377,8 @@ def run_threshold_calibration_stage(
                 {
                     "replication_id": replication_id,
                     "experiment_seed": protocol.threshold_calibration_seed,
+                    "configuration_fingerprint": config_fingerprint,
+                    "scales_fingerprint": scales_fingerprint,
                     "peak_cid": peak,
                 },
             )
@@ -338,6 +416,8 @@ def run_threshold_calibration_stage(
     final_payload = {
         "purpose": "final frozen-method D042 no-social market-evaluation calibration",
         "final_calibration": True,
+        "configuration_fingerprint": config_fingerprint,
+        "reference_scales_fingerprint": scales_fingerprint,
         "calibration_alpha": 0.0,
         "adaptive_attention_during_calibration": False,
         "adaptive_attention_note": (
@@ -357,15 +437,7 @@ def run_threshold_calibration_stage(
             "quantile_method": _QUANTILE_METHOD,
             "stabilisation_length": protocol.stabilisation_length,
         },
-        "frozen_baseline": {
-            "n_agents": baseline.n_agents,
-            "k": baseline.k,
-            "horizon": baseline.horizon,
-            "hub_q": baseline.hub_q,
-            "p_sw": baseline.p_sw,
-            "a0": baseline.a0,
-            "parameters": asdict(baseline.parameters),
-        },
+        "frozen_baseline": _configuration_payload(protocol, baseline)["baseline"],
         "reference_scales": {
             "c_ret": scales.return_scale,
             "c_bel": scales.belief_scale,
