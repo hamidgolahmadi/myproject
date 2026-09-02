@@ -56,6 +56,15 @@ from .market_metrics import (
     rms_mispricing,
     time_averaged_belief_variance,
 )
+from .market_smoke import (
+    MarketScaleSmokeProtocol,
+    MarketScaleSmokeRecord,
+    MarketScaleSmokeResult,
+    SmokeMetricSummary,
+    diagnose_market_scale,
+    run_first_refined_baseline_scale_smoke,
+    summarise_market_scale_smoke,
+)
 from .paired import PairedReplicationPlan, ReplicationSeeds, prepare_paired_replication
 from .seeding import derive_graph_seed, derive_semantic_seed
 from .structural import (
@@ -81,6 +90,9 @@ __all__ = [
     "DistributionSummary",
     "MarketEvaluationCalibration",
     "MarketEvaluationCalibrationProtocol",
+    "MarketScaleSmokeProtocol",
+    "MarketScaleSmokeRecord",
+    "MarketScaleSmokeResult",
     "NonNetworkInitialConditions",
     "OperationalStabilisationResult",
     "PairedReplicationPlan",
@@ -93,6 +105,7 @@ __all__ = [
     "RollingCIDComponentsPoint",
     "RollingCIDPoint",
     "RunLevelMarketOutcomes",
+    "SmokeMetricSummary",
     "StructuralEnsembleRecord",
     "StructuralEnsembleResult",
     "StructuralValidationCalibration",
@@ -106,6 +119,7 @@ __all__ = [
     "compute_run_level_market_outcomes",
     "derive_graph_seed",
     "derive_semantic_seed",
+    "diagnose_market_scale",
     "effective_number_of_sources",
     "estimate_cid_threshold",
     "estimate_reference_scales",
@@ -129,9 +143,11 @@ __all__ = [
     "rolling_action_covariance",
     "rolling_cid",
     "rolling_cid_components",
+    "run_first_refined_baseline_scale_smoke",
     "run_structural_ensemble",
     "standardise_cid_components",
     "structural_hub_nodes",
+    "summarise_market_scale_smoke",
     "threshold_exceedance_rate",
     "time_averaged_belief_variance",
     "write_structural_result",
