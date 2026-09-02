@@ -16,7 +16,7 @@ Scientific source of truth:
 
     report1_25_08_2026.pdf
 
-Legacy code is reference/reproducibility only.
+Legacy code is reference/reproducibility only and must never override the report.
 
 Iridis setup:
 
@@ -51,13 +51,22 @@ Evaluation/mechanism layers VERIFIED:
 
 Eq. (266)-(267) KL-to-transition-prior remains deferred with attention inertia.
 
-## Latest verified test checkpoint
+## Verified test checkpoint
 
-    504 passed in 5.88s
+Latest Iridis checkpoint:
 
-with clean working tree and branch up to date with origin/refined-model.
+    528 passed in 8.31s
 
-This verifies the D042 calibration method, provisional baseline object/initialisation, and baseline scale-smoke evaluator/driver.
+with clean working tree and branch up to date with `origin/refined-model`.
+
+This verifies:
+
+- D042 separate-sample market-evaluation calibration METHOD;
+- provisional baseline specification / neutral initialisation machinery;
+- topology-blind market-scale smoke diagnostics;
+- common-random-number OAT sigma_0 sensitivity machinery.
+
+The D043 freeze changes described below are newly committed and await the next Iridis test checkpoint.
 
 ## D042 market-evaluation calibration method — FROZEN
 
@@ -74,23 +83,42 @@ This verifies the D042 calibration method, provisional baseline object/initialis
     component guardrails = inactive baseline
     L_stab = 50
 
-DO NOT run the 500+500 calibration yet.
+The numerical `c_ret`, `c_bel`, `c_F`, and `c_CID` do not exist yet.
 
-## Provisional refined baseline candidate
+## D043 first refined baseline — FROZEN
 
-Module:
+Canonical module:
 
     src/experiments/refined/baseline_specification.py
 
-Provenance and smoke record:
+Canonical documentation:
+
+    docs/REFINED_BASELINE.md
+
+Archived pre-freeze note:
 
     docs/REFINED_BASELINE_CANDIDATE.md
 
-Status:
+Canonical API:
 
-    PROVISIONAL — NOT FROZEN
+    RefinedBaselineSpecification
+    first_refined_baseline_specification()
 
-Candidate parameters:
+Compatibility aliases retained:
+
+    RefinedBaselineCandidate
+    first_refined_baseline_candidate()
+
+Frozen design:
+
+    N = 100
+    K = 6
+    T = 1000
+    q = 5
+    p_sw = 0.02
+    a0 = 1.0
+
+Frozen RefinedParameters:
 
     rho_theta    = 0.985
     sigma_theta  = 0.025
@@ -106,9 +134,9 @@ Candidate parameters:
     sigma_p      = 0.001
     gamma_R      = 0.9
     beta         = 1.0
-    sigma_0      = 1e-6   # under pre-freeze review
+    sigma_0      = 0.0005
 
-Neutral non-network initialisation candidate:
+Frozen neutral non-network initialisation:
 
     theta_0 ~ stationary AR(1)
     b_i,0 = theta_0 for all i
@@ -116,99 +144,77 @@ Neutral non-network initialisation candidate:
     x_0 = 0
     R_0 = 0
 
-W_0 remains topology-specific uniform graph-supported attention.
+`W_0` remains topology-specific uniform graph-supported attention.
 
-## Completed baseline scale smoke
+## Evidence for D043 freeze
 
-Driver:
-
-    scripts/run_refined_baseline_scale_smoke.py
-
-Design:
+The first topology-blind scale smoke used:
 
     experiment_seed = 2026090203
-    paired replications = 5
-    total treatment runs = 15
+    5 paired replications
+    3 topology treatments per replication
     N = 100
     T = 1000
 
-Pooled medians:
+It found finite, non-degenerate market dynamics.  With the initial candidate:
 
-    return_std                              0.00342286
-    mean_abs_return                         0.00271065
-    max_abs_return                          0.0109005
-    rms_mispricing                          0.0685422
-    max_abs_mispricing                      0.219996
-    mean_abs_flow_per_agent                 0.0784241
-    rms_flow_per_agent                      0.101498
-    desired_action_abs_p95                  0.304871
-    desired_action_saturation_fraction      0.0
-    execution_projection_fraction           0.14608
-    inventory_boundary_fraction             0.14608
-    median_local_reputation_std              0.000672808
-    median_reputation_scale_to_sigma0        672.808
-    mean_attention_mobility                  0.0492363
-    max_attention_mobility                   0.664115
-    final_attention_distance_from_initial    0.379522
+    median return SD                      0.00342286
+    median RMS mispricing                 0.0685422
+    median RMS flow per agent             0.101498
+    median |desired action| p95           0.304871
+    desired-action saturation fraction   0
+    median projection fraction            0.14608
+    median inventory-boundary fraction    0.14608
 
-Interpretation:
+The only unresolved scale issue was the reputation-dispersion floor `sigma_0=1e-6`.
 
-- returns, mispricing and signed flow are finite and non-degenerate;
-- desired actions are not tanh-saturated;
-- inventory constraints are active but not mechanically dominant;
-- the unresolved issue is sigma_0: realised local reputation dispersion is hundreds of times larger than the provisional floor, making regularisation almost immediately negligible.
+A common-random-number OAT sensitivity then compared:
 
-The report states that sigma_0 exists to prevent an almost-degenerate local reputation distribution from generating an artificial response after standardisation. Therefore sigma_0 must be checked before baseline freeze.
+    sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
 
-## sigma_0 pre-freeze sensitivity smoke — NEW
+using the same graph realisations, shock paths, initial states, and all other parameters.
 
-Module:
+Return volatility, mispricing, order flow, desired-action scale, and inventory projection were essentially invariant across the grid.  The intended attention regularisation changed smoothly.
 
-    src/experiments/refined/sigma0_sensitivity.py
+At the frozen value `sigma_0=5e-4`, pooled medians were approximately:
 
-Driver:
+    raw local reputation std / sigma_0    1.357
+    mean attention mobility                0.02950
+    max attention mobility                 0.32234
+    final W distance from W0               0.29332
+    return SD                              0.003428
+    RMS mispricing                         0.068518
+    projection fraction                    0.14385
 
-    scripts/run_refined_sigma0_sensitivity_smoke.py
+The value is frozen because the floor is of the same order as realised local reputation dispersion: it meaningfully regularises near-degenerate local reputation distributions without dominating them or shutting down adaptive attention.  Selection used pooled absolute diagnostics only, never topology rankings.
 
-Tests:
+## Immediate gate
 
-    tests/test_refined_sigma0_sensitivity.py
+New D043 implementation/tests are committed but not yet verified on Iridis.
 
-Controlled OAT grid:
+Next checkpoint:
 
-    sigma_0 in {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+    python -m pytest -q tests/test_refined_*.py
 
-Design rules:
+Expected total:
 
-- reuse the same experiment seed 2026090203 and the same five replication ids;
-- therefore graph seeds, shock paths and neutral initial-state randomness are common across sigma_0 values;
-- change only sigma_0;
-- pool diagnostics across topology labels;
-- do not estimate R/SW/SF contrasts and do not tune toward a preferred topology ranking.
+    530 passed
 
-Reported pooled diagnostics focus on reputation-scale/sigma_0, attention mobility/distance, returns, mispricing, signed flow and inventory projection.
+If 530 passes, D043 implementation is VERIFIED.
 
-New tests add 24 pytest cases.
+Then the next development task is a SMALL end-to-end no-social D042 calibration smoke under the frozen D043 baseline.  That smoke should validate:
 
-Expected next checkpoint:
+- `alpha=0` is enforced in the calibration market specification;
+- scale and threshold seed namespaces are distinct;
+- rolling component paths have the expected 951 endpoints for T=1000, B=0, L=50;
+- the pooled scale medians are strictly positive;
+- standardised CID paths and run-level peak CID are finite;
+- persistence/serialization of a calibration artifact works;
+- no R/SW/SF ranking is inspected or used.
 
-    528 passed
+Only after that small no-social calibration smoke succeeds may the full D042 500+500 calibration be run.
 
-## Immediate next step
-
-1. Pull latest refined-model on Iridis.
-2. Run all refined tests; expected 528 passed.
-3. If green, run:
-
-       python scripts/run_refined_sigma0_sensitivity_smoke.py
-
-4. Inspect the pooled table only for scale/regularisation behavior.
-5. Select sigma_0 on pre-freeze regularisation grounds, document the choice, and freeze the complete baseline vector only if the resulting model remains non-degenerate.
-6. Recheck the alpha=0 topology-null property under the selected frozen vector.
-7. Then run a small no-social D042 calibration smoke before the full 500+500 calibration.
-8. Persist and freeze numerical c_ret, c_bel, c_F, and c_CID before any confirmatory topology market experiment.
-
-Large topology-evaluation Monte Carlo remains prohibited until these gates pass.
+Large confirmatory topology-evaluation Monte Carlo remains prohibited until the numerical calibration artifact is frozen and a small paired confirmatory market runner has passed.
 
 ## Development status
 
@@ -218,7 +224,7 @@ Large topology-evaluation Monte Carlo remains prohibited until these gates pass.
     Phase 4  Paired design + structural validation              COMPLETE
     Phase 5  Market metrics / CID / calibration method          COMPLETE
     Phase 6  Mechanism diagnostics                              COMPLETE
-    Phase 7  Baseline scale smoke + market calibration          IN PROGRESS
+    Phase 7  Frozen baseline + market calibration               IN PROGRESS
     Phase 8  Paired confirmatory market runner                  PLANNED
     Phase 9  alpha/beta/gamma experiments + heterogeneity       PLANNED
     Phase 10 Endogenous G formation                             PLANNED
