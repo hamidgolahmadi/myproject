@@ -1,10 +1,11 @@
-"""Provisional first refined baseline parameterisation and neutral initialisation.
+"""Frozen first refined baseline parameterisation and neutral initialisation.
 
 The doctoral report fixes the model equations and several design rules but does
-not provide one complete numerical parameter table for the refined model.  This
-module therefore records an explicit *candidate* baseline derived from the
-report plus unit-consistent pilot anchors.  It must pass a dedicated scale smoke
-run before it can be frozen for calibration or confirmatory topology analysis.
+not provide one complete numerical parameter table for the refined model.  The
+first numerical specification was therefore built from report-consistent design
+choices plus unit-consistent pilot anchors, then subjected to pre-freeze scale
+and sigma_0 sensitivity smoke tests.  Decision D043 freezes this specification
+for the first D042 calibration and confirmatory fixed-topology market runs.
 """
 
 from __future__ import annotations
@@ -23,15 +24,19 @@ from .seeding import nonnegative_integer
 from .treatments import NonNetworkInitialConditions, TopologySpecification
 
 
-def _candidate_parameters() -> RefinedParameters:
-    """Return the provisional homogeneous refined parameter vector.
+def _baseline_parameters() -> RefinedParameters:
+    """Return the frozen homogeneous first-stage refined parameter vector.
 
     Information-process anchors are inherited from the pilot only where the
-    refined equations have the same units.  Price coefficients are converted
-    from the pilot's level-price/simple-return convention to the refined
+    refined equations have comparable roles and units.  Price coefficients are
+    mapped from the pilot's level-price/simple-return convention to the refined
     normalised/log-price-change convention using the pilot reference price 100.
-    The inventory limit and fundamental anchor are genuinely new refined design
-    choices and therefore require scale validation before freezing.
+
+    ``sigma_0=5e-4`` is the only candidate parameter revised after the first
+    scale smoke.  A common-random-number OAT smoke showed that this value makes
+    the regularisation floor comparable to realised local reputation dispersion
+    while preserving active attention reallocation and leaving return,
+    mispricing, order-flow, and inventory scales essentially unchanged.
     """
 
     return RefinedParameters(
@@ -49,13 +54,13 @@ def _candidate_parameters() -> RefinedParameters:
         sigma_p=0.001,
         gamma_R=0.9,
         beta=1.0,
-        sigma_0=1e-6,
+        sigma_0=5e-4,
     )
 
 
 @dataclass(frozen=True, slots=True)
-class RefinedBaselineCandidate:
-    """Provisional first-stage market specification awaiting scale validation."""
+class RefinedBaselineSpecification:
+    """Frozen first-stage homogeneous market specification."""
 
     n_agents: int = 100
     k: int = 6
@@ -63,7 +68,7 @@ class RefinedBaselineCandidate:
     hub_q: int = 5
     p_sw: float = 0.02
     a0: float = 1.0
-    parameters: RefinedParameters = field(default_factory=_candidate_parameters)
+    parameters: RefinedParameters = field(default_factory=_baseline_parameters)
 
     def __post_init__(self) -> None:
         for name in ("n_agents", "k", "horizon", "hub_q"):
@@ -106,10 +111,21 @@ class RefinedBaselineCandidate:
         return float(np.sqrt(stationary_fundamental_variance(self.parameters)))
 
 
-def first_refined_baseline_candidate() -> RefinedBaselineCandidate:
-    """Return the provisional candidate to be tested before design freeze."""
+def first_refined_baseline_specification() -> RefinedBaselineSpecification:
+    """Return the frozen D043 first-stage refined market specification."""
 
-    return RefinedBaselineCandidate()
+    return RefinedBaselineSpecification()
+
+
+# Compatibility aliases retained so earlier refined experiment code and saved
+# notebooks do not break merely because the pre-freeze object was renamed.
+RefinedBaselineCandidate = RefinedBaselineSpecification
+
+
+def first_refined_baseline_candidate() -> RefinedBaselineSpecification:
+    """Compatibility alias for :func:`first_refined_baseline_specification`."""
+
+    return first_refined_baseline_specification()
 
 
 def generate_neutral_nonnetwork_initial_conditions(
@@ -118,7 +134,7 @@ def generate_neutral_nonnetwork_initial_conditions(
     parameters: RefinedParameters,
     initial_state_seed: int,
 ) -> NonNetworkInitialConditions:
-    """Generate the explicit neutral ``X_{0,-W}`` rule for the candidate.
+    """Generate the frozen neutral ``X_{0,-W}`` rule from D043.
 
     ``theta_0`` is drawn from the stationary AR(1) distribution.  The initial
     price is placed exactly at contemporaneous fundamental value and all agents
