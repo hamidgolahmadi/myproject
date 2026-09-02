@@ -54,6 +54,7 @@ Refined experiment/evaluation layer:
         action_covariance.py
         cid.py
         cid_events.py
+        influence_metrics.py
 
 Refined topology layer:
 
@@ -71,13 +72,13 @@ Structural-validation driver:
 
 See `docs/DECISIONS.md`. Key frozen points include separation of `G` and `W_t`, lagged attention in beliefs, signed net order flow, inherited-position profit, paired common-random-number design, mandatory `alpha=0` negative control, and D041 structural-validation calibration.
 
-No numerical CID threshold, component guardrail, or reference scale has yet been frozen for the market experiment.
+No numerical CID threshold, component guardrail, rolling-window length, or CID reference scale has yet been frozen for the market experiment.
 
 ---
 
 ## 5. Verified Refined Core and Paired Infrastructure
 
-The fixed-topology runtime for Equations (35)-(82) is implemented and VERIFIED, including canonical one-period timing, deterministic multi-period simulation, shock generation, paired semantic seeds, topology-specific graph generation, neutral graph-supported `W_0`, and generated-treatment `alpha=0` controls.
+The fixed-topology runtime for Equations (35)-(82) is implemented and VERIFIED, including canonical timing, deterministic multi-period simulation, shock generation, paired semantic seeds, topology-specific graph generation, neutral graph-supported `W_0`, and generated-treatment `alpha=0` controls.
 
 ---
 
@@ -128,22 +129,24 @@ Verified on Iridis:
     284 passed   + run-level market outcomes, Eqs. (236)-(238), (288)-(289)
     302 passed   + rolling action covariance / order-flow variance decomposition, Eqs. (239)-(240)
     341 passed   + rolling CID components, standardisation, and dimensionless CID, Eqs. (241)-(246)
+    374 passed   + threshold/duration/right-censored stabilisation logic, Eqs. (247)-(250)
 
 Latest verified checkpoint:
 
-    341 passed in 6.59s
+    374 passed in 6.75s
 
 with clean working tree and branch up to date with `origin/refined-model`.
 
 ---
 
-## 8. Run-Level and Rolling Market Metrics — VERIFIED
+## 8. Market Outcome, Covariance, and CID Layers — VERIFIED
 
 Verified modules:
 
     src/experiments/refined/market_metrics.py
     src/experiments/refined/action_covariance.py
     src/experiments/refined/cid.py
+    src/experiments/refined/cid_events.py
 
 Implemented and VERIFIED:
 
@@ -159,70 +162,90 @@ Implemented and VERIFIED:
     Eq. (244) explicit positive reference scales
     Eq. (245) non-negative weights summing to one
     Eq. (246) dimensionless weighted CID
+    Eq. (247) threshold-exceedance indicator with optional component guardrails
+    Eq. (248) topology-level exceedance-rate aggregator
+    Eq. (249) peak CID and CID-only exceedance-duration share
+    Eq. (250) operational stabilisation with L_stab consecutive admissible windows and right-censoring
     Eq. (288) mean absolute return MAR
     Eq. (289) time-averaged cross-sectional belief variance V_b
 
-Eq. (242) uses period-level population cross-sectional belief variance `(1/N) sum_i (b_i-bbar)^2`, consistent with Eq. (289).
+Important threshold semantics are VERIFIED: Eq. (247) uses strict `>`; Eq. (250) uses `<=`; inactive component guardrails are treated as `+infinity`; right-censored runs are not assigned artificial stabilisation times. The report-defined first-stage default is `L_stab=50`.
 
-No CID reference scales are hard-coded. `CIDWeights.equal()` is only a convenience constructor and does not itself freeze the experiment design.
+No numerical `c_CID`, component guardrail, CID reference scale, or market rolling window is hard-coded.
 
 ---
 
-## 9. Threshold Exceedance and Operational Stabilisation — NEW
+## 9. Realised Influence / Common Exposure — NEW
 
 NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
 
-    src/experiments/refined/cid_events.py
+    src/experiments/refined/influence_metrics.py
 
 Public API:
 
-    CIDThresholdConfiguration
-    OperationalStabilisationResult
-    CIDRunClassification
-    operational_stabilisation(...)
-    classify_cid_path(...)
-    threshold_exceedance_rate(...)
+    structural_hub_nodes(...)
+    attention_entropy(...)
+    normalised_attention_entropy(...)
+    effective_number_of_sources(...)
+    realised_influence_shares(...)
+    realised_influence_hhi(...)
+    realised_hub_influence_share(...)
+    attention_overlap(...)
+    attention_mobility(...)
+    RealisedInfluencePoint
+    RealisedInfluencePath
+    realised_influence_path(...)
 
 Implements:
 
-    Eq. (247) run-level threshold-exceedance indicator using OR across CID and active component guardrails
-    Eq. (248) topology-level exceedance rate as the mean of run indicators
-    Eq. (249) peak CID and fraction of evaluated windows with CID > c_CID
-    Eq. (250) first operational stabilisation start requiring CID and all active guardrails to remain admissible for L_stab consecutive windows
+    Eq. (251) row-level entropy normalised by log out-degree
+    Eq. (252) effective number of sources exp(H)
+    Eq. (253) network-average normalised entropy and effective-source count
+    Eqs. (254)-(255) realised source influence shares from W_t column sums
+    Eq. (256) realised-influence HHI
+    Eq. (257) realised influence share of structural hubs H_q(G)
+    Eqs. (258)-(264) aggregate attention overlap / common exposure
+    Eq. (265) RMS row-level one-period attention mobility
 
-Important semantics:
+The path evaluator records t=1,...,T. Period-t concentration/overlap uses `W_t = states[t].attention`; mobility uses `(W_{t-1}, W_t)`, so the first value measures the transition from neutral `W_0` to `W_1`.
 
-- threshold exceedance uses strict `>`;
-- stabilisation admissibility uses `<=`;
-- Eq. (249) duration share counts CID threshold crossings only, not component-guardrail crossings;
-- inactive component guardrails are represented as `None` and treated as `+infinity`;
-- if no qualifying stabilisation block exists, `stabilisation_period=None` and `right_censored=True`; no artificial zero or pseudo-time is created;
-- `last_eligible_start_period` records the final start for which a complete L_stab block could be observed;
-- first-stage `L_stab=50` is the report-defined default, not an inferred calibration.
+Structural hubs are selected from directed in-degree in G, never from realised W_t. The report does not specify how to break an in-degree tie at the q-th rank; implementation uses decreasing in-degree then increasing node label as a deterministic reproducibility convention. This tie-break has no economic meaning.
 
-No numerical `c_CID` or component guardrail values are hard-coded.
+For fixed-out-degree graphs under neutral uniform W_0, the implementation/test design checks the identity:
+
+    realised source share = in-degree / total links
+
+and therefore:
+
+    S^I_q,0 = S^G_q
+
+before adaptive attention reallocates influence.
+
+The implementation stores agent-level entropy/effective-source arrays and source-level influence shares as well as network scalar summaries, so mechanism analysis does not require rerunning dynamics.
+
+Eq. (266)-(267) KL divergence to a transition prior remains DEFERRED with the attention-inertia extension because the current first-stage model uses the frictionless `tau=0` attention rule.
 
 New test file:
 
-    tests/test_refined_cid_events.py
+    tests/test_refined_influence_metrics.py
 
-adds 33 pytest cases.
+adds 35 pytest cases.
 
 Expected next total:
 
-    374 passed
+    409 passed
 
 ---
 
 ## 10. Computational Milestones
 
-Milestones 1-13 are VERIFIED, including structural validation, principal market outcomes, action covariance, and CID Eqs. (241)-(246).
+Milestones 1-14 are VERIFIED, including structural validation, market outcomes, action covariance, CID construction, and threshold/stabilisation logic.
 
-Milestone 14 — threshold/duration/right-censored stabilisation logic, Eqs. (247)-(250):
+Milestone 15 — realised-influence concentration, overlap, and mobility, Eqs. (251)-(265):
 
     IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
 
-Do not start the large refined market Monte Carlo yet. Realised-influence diagnostics and explicit market-run calibration still need implementation/verification.
+Do not start the large refined market Monte Carlo yet. After influence verification, the remaining critical gate is explicit market-evaluation calibration: rolling window `L`, CID reference scales, CID weights, `c_CID`, optional component guardrails, and `L_stab=50` must be frozen independently of topology rankings.
 
 ---
 
@@ -235,12 +258,21 @@ Do not start the large refined market Monte Carlo yet. Realised-influence diagno
 
 3. Expected total:
 
-       374 passed
+       409 passed
 
-4. If all 374 pass, record Milestone 14 as VERIFIED.
-5. Then implement effective-influence concentration, overlap, and mobility, Eqs. (251)-(265).
-6. After mechanism diagnostics, freeze the market-evaluation calibration inputs before topology-evaluation Monte Carlo: `L`, CID reference scales, CID weights, `c_CID`, optional component guardrails, and the report-defined `L_stab=50`.
-7. Calibration must be independent of observed topology rankings.
+4. If all 409 pass, record Milestone 15 as VERIFIED.
+5. Then design and freeze the market-evaluation calibration protocol before any topology-evaluation market Monte Carlo:
+
+       rolling window L
+       separate no-social calibration sample / seeds
+       c_ret, c_bel, c_F
+       CID weights
+       c_CID
+       optional component guardrails
+       L_stab = 50
+
+6. Calibration inputs must be fixed independently of observed R/SW/SF rankings.
+7. After calibration is frozen, build the paired market-run driver and persistent run-level/mechanism output layer, then run a small smoke experiment before any 1000-replication confirmatory job.
 
 ---
 
@@ -250,7 +282,7 @@ Do not start the large refined market Monte Carlo yet. Realised-influence diagno
     Phase 2  Refined binary topology generators                       COMPLETE
     Phase 3  Deterministic integration and multi-period tests         COMPLETE
     Phase 4  Paired fixed-topology design + structural validation      COMPLETE
-    Phase 5  Refined market metrics and CID                            IN PROGRESS
+    Phase 5  Refined market metrics and CID                            NEAR COMPLETE
     Phase 6  Influence / overlap / action-covariance diagnostics       IN PROGRESS
     Phase 7  alpha / beta / gamma_R experiments and heterogeneity      PLANNED
     Phase 8  Endogenous feasible-network formation and rewiring        PLANNED
