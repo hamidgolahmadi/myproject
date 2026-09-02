@@ -1,7 +1,8 @@
 """Refined confirmatory experiment-design utilities.
 
 This package is separate from legacy experiment runners and implements the
-report-defined refined paired, structural-validation, and evaluation workflows.
+report-defined refined paired, structural-validation, calibration, and
+evaluation workflows.
 """
 
 from .action_covariance import (
@@ -43,6 +44,14 @@ from .influence_metrics import (
     realised_influence_shares,
     structural_hub_nodes,
 )
+from .market_calibration import (
+    MarketEvaluationCalibration,
+    MarketEvaluationCalibrationProtocol,
+    calibrate_market_evaluation,
+    estimate_cid_threshold,
+    estimate_reference_scales,
+    first_market_evaluation_calibration_protocol,
+)
 from .market_metrics import (
     RunLevelMarketOutcomes,
     compute_run_level_market_outcomes,
@@ -80,6 +89,8 @@ __all__ = [
     "CIDThresholdConfiguration",
     "CIDWeights",
     "DistributionSummary",
+    "MarketEvaluationCalibration",
+    "MarketEvaluationCalibrationProtocol",
     "NonNetworkInitialConditions",
     "OperationalStabilisationResult",
     "PairedReplicationPlan",
@@ -99,11 +110,15 @@ __all__ = [
     "attention_entropy",
     "attention_mobility",
     "attention_overlap",
+    "calibrate_market_evaluation",
     "classify_cid_path",
     "compute_run_level_market_outcomes",
     "derive_graph_seed",
     "derive_semantic_seed",
     "effective_number_of_sources",
+    "estimate_cid_threshold",
+    "estimate_reference_scales",
+    "first_market_evaluation_calibration_protocol",
     "first_structural_validation_calibration",
     "maximum_absolute_mispricing",
     "mean_absolute_order_flow_per_agent",
