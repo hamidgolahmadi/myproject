@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 
 ## 1. Project Identity
 
@@ -52,6 +52,7 @@ Refined experiment/evaluation layer:
         structural_io.py
         market_metrics.py
         action_covariance.py
+        cid.py
 
 Refined topology layer:
 
@@ -98,9 +99,7 @@ Mean diagnostics:
     SW      0.03201       0.05932       0.54982      4.46807      1.00000
     SF      0.51145       0.18908       0.13959      2.08013      1.00000
 
-Structural separation is strong and non-overlapping in the intended dimensions: every realised SF graph has greater in-degree Gini and top-five hub share than every realised Random graph, and every realised SW graph has greater clustering than every realised Random graph. All symmetrised supports are fully connected.
-
-Interpret SW path length precisely: at `p_sw=0.02`, it is highly clustered and fully connected with a limited-shortcut structure, but APL-LCC is materially longer than Random. No recalibration is currently required merely to exaggerate separation.
+Structural separation is strong and non-overlapping in the intended dimensions. All symmetrised supports are fully connected. SW is highly clustered and fully connected with a limited-shortcut structure, but its APL-LCC is materially longer than Random; do not describe it as Random-like in path length.
 
 ---
 
@@ -124,10 +123,11 @@ Verified on Iridis:
     247 passed
     261 passed
     284 passed   + run-level market outcomes, Eqs. (236)-(238), (288)-(289)
+    302 passed   + rolling action covariance / order-flow variance decomposition, Eqs. (239)-(240)
 
 Latest verified checkpoint:
 
-    284 passed in 5.11s
+    302 passed in 5.72s
 
 with clean working tree and branch up to date with `origin/refined-model`.
 
@@ -152,9 +152,9 @@ Baseline evaluation uses `B=0`; positive burn-in remains an explicit robustness 
 
 ---
 
-## 9. Rolling Action Covariance — NEW
+## 9. Rolling Action Covariance — VERIFIED
 
-NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
+Implemented and VERIFIED in:
 
     src/experiments/refined/action_covariance.py
 
@@ -163,56 +163,83 @@ Public API:
     RollingActionCovariancePoint
     rolling_action_covariance(...)
 
-Implements Section 5.5:
+Implements:
 
-    Eq. (239) average pairwise sample action covariance over each full rolling window
+    Eq. (239) average pairwise sample action covariance
     Eq. (240) exact sample variance decomposition of signed net order flow
 
-For valid endpoints:
+For valid endpoints `t=B+L,...,T`, the implementation uses full windows of length `L`, sample covariance/variance denominator `L-1`, validates `F_t=sum_i a_i,t`, and checks the decomposition numerically at every rolling endpoint.
 
-    t = B + L, ..., T
+---
 
-it uses the full window:
+## 10. Rolling CID Components and Normalisation — NEW
 
-    {t-L+1, ..., t}
+NEWLY IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION:
 
-with sample covariance/variance denominator `L-1`.
+    src/experiments/refined/cid.py
 
-The implementation checks that stored `F_t` equals the sum of agent actions and verifies numerically for every window that:
+Public API:
 
-    Var_hat(F)
-      =
-    sum_i Var_hat(a_i)
-      +
-    N(N-1) C_a
+    RollingCIDComponentsPoint
+    CIDReferenceScales
+    CIDWeights
+    RollingCIDPoint
+    rolling_cid_components(...)
+    standardise_cid_components(...)
+    rolling_cid(...)
 
-It does not reconstruct market dynamics or substitute gross volume for signed order flow.
+Implements:
+
+    Eq. (241) rolling sample return volatility V_ret
+    Eq. (242) rolling belief dispersion B_bel
+    Eq. (243) RMS signed net-order-flow pressure Q_F
+    Eq. (244) standardised components Z_ret, Z_bel, Z_F
+    Eq. (245) non-negative weights summing to one
+    Eq. (246) dimensionless weighted CID
+
+Rolling-window convention follows Eq. (235): valid endpoints are `t=B+L,...,T`, using exactly `L` post-burn-in observations.
+
+The Eq. (242) period-level belief dispersion `D_b,t` is implemented as the population cross-sectional belief variance
+
+    (1/N) sum_i (b_i,t - bbar_t)^2
+
+consistent with the report's explicit Eq. (289) definition of cross-sectional belief variance.
+
+The CID layer is deliberately split into:
+
+1. raw rolling components with no calibration;
+2. standardisation using explicit positive `CIDReferenceScales`;
+3. weighted combination using explicit valid `CIDWeights`.
+
+No numerical reference scales are hard-coded. `CIDWeights.equal()` is only a convenience constructor for the transparent equal-weight baseline mentioned in the report; the market experiment must still explicitly freeze its chosen weights before execution.
+
+No threshold, guardrail, or stabilisation logic from Eqs. (247)-(250) has been introduced yet.
 
 New test file:
 
-    tests/test_refined_action_covariance.py
+    tests/test_refined_cid.py
 
-adds 18 pytest cases.
+adds 39 pytest cases.
 
 Expected next total:
 
-    302 passed
+    341 passed
 
 ---
 
-## 10. Computational Milestones
+## 11. Computational Milestones
 
-Milestones 1-11 are VERIFIED, including structural validation and principal run-level market outcomes.
+Milestones 1-12 are VERIFIED, including structural validation, principal run-level market outcomes, and rolling action covariance.
 
-Milestone 12 — rolling action covariance and exact order-flow variance decomposition:
+Milestone 13 — rolling CID raw components and dimensionless normalisation, Eqs. (241)-(246):
 
     IMPLEMENTED; AWAITING IRIDIS TEST VERIFICATION
 
-Do not start the large refined market Monte Carlo yet. CID, influence/overlap/mobility diagnostics, and explicit market-run calibration remain to be fixed and verified.
+Do not start the large refined market Monte Carlo yet. Threshold/stabilisation logic, realised-influence diagnostics, and explicit market-run calibration still need implementation/verification.
 
 ---
 
-## 11. Immediate Next Step
+## 12. Immediate Next Step
 
 1. Pull latest `refined-model` on Iridis.
 2. Run:
@@ -221,17 +248,16 @@ Do not start the large refined market Monte Carlo yet. CID, influence/overlap/mo
 
 3. Expected total:
 
-       302 passed
+       341 passed
 
-4. If all 302 pass, record Milestone 12 as VERIFIED.
-5. Then implement rolling CID components and normalisation, Eqs. (241)-(246), without choosing reference scales or thresholds from observed topology rankings.
-6. After CID components, implement threshold/duration/censored-stabilisation logic, Eqs. (247)-(250).
-7. Then implement effective-influence concentration, overlap, and mobility, Eqs. (251)-(265).
-8. Freeze all window lengths, CID reference scales, CID weights, thresholds, guardrails, and stabilisation length before the topology-evaluation market Monte Carlo.
+4. If all 341 pass, record Milestone 13 as VERIFIED.
+5. Then implement threshold-exceedance, peak/duration, and right-censored operational stabilisation logic, Eqs. (247)-(250), without selecting numerical thresholds from observed topology rankings.
+6. Then implement effective-influence concentration, overlap, and mobility, Eqs. (251)-(265).
+7. Freeze `L`, CID reference scales, CID weights, thresholds, component guardrails, and `L_stab` before topology-evaluation market Monte Carlo.
 
 ---
 
-## 12. Planned Development Sequence
+## 13. Planned Development Sequence
 
     Phase 1  Refined fixed-topology core model                         COMPLETE
     Phase 2  Refined binary topology generators                       COMPLETE
@@ -249,7 +275,7 @@ Optional later extension: MARL
 
 ---
 
-## 13. New-Chat Handoff Prompt
+## 14. New-Chat Handoff Prompt
 
 When starting a new conversation:
 
