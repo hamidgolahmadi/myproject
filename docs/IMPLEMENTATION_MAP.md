@@ -38,8 +38,9 @@ Experiment/evaluation layer:
         cid.py
         cid_events.py
         influence_metrics.py
+        market_calibration.py
 
-Rule: economic transition equations live only under `src/model/refined/`. Evaluation modules consume completed `SimulationResult` objects and must not duplicate dynamics.
+Rule: economic transition equations live only under `src/model/refined/`. Evaluation and calibration modules consume completed outputs and must not duplicate or alter the transition law.
 
 ---
 
@@ -58,7 +59,7 @@ Critical timing:
 
     b_t uses W_{t-1}; W_t first affects b_{t+1}
 
-Key runtime mapping:
+Key mapping:
 
     Eqs. (35)-(41) state.py, attention.py
     Eqs. (42)-(47) fundamentals.py, shocks.py
@@ -74,7 +75,7 @@ Multi-period wrapper:
     SimulationResult
     simulate_shock_path(...)
 
-Core Eqs. (35)-(82) are VERIFIED.
+Status: VERIFIED.
 
 ---
 
@@ -85,7 +86,7 @@ Semantic seed architecture:
     src/experiments/refined/seeding.py
     src/experiments/refined/paired.py
 
-Roles:
+Roles include:
 
     replication_id
     graph_seed
@@ -102,7 +103,7 @@ Common within replication: shocks, non-network initial conditions, parameters, h
 
 Topology-specific: graph seed/realisation and graph-supported `W_0`.
 
-Generated-treatment `alpha=0` topology-null control is VERIFIED.
+Generated-treatment `alpha=0` topology-null control: VERIFIED.
 
 ---
 
@@ -115,8 +116,6 @@ Generators:
     generate_small_world(...)
     generate_hub_dominated(...)
 
-Common benchmark constraints: directed binary `G`, zero diagonal, no duplicate directed edges, exactly `K` outgoing links per row, total links `N*K`.
-
 Structural diagnostics, Eqs. (203)-(211):
 
     src/topologies/refined/diagnostics.py
@@ -125,11 +124,11 @@ Matched structural ensemble runner:
 
     src/experiments/refined/structural.py
 
-D041 1000-graph-per-topology structural validation is completed successfully and structurally separates R/SW/SF in the intended dimensions.
+D041 1000-graph-per-topology structural validation: COMPLETED SUCCESSFULLY.
 
 ---
 
-## 6. Evaluation sample and run-level outcomes
+## 6. Run-level market outcomes
 
 Implementation:
 
@@ -138,13 +137,13 @@ Implementation:
 Evaluation sample, Eqs. (231)-(235):
 
     T_B = {B+1,...,T}
-    full rolling windows W_t^(L) = {t-L+1,...,t}
+    W_t^(L) = {t-L+1,...,t}
 
-Baseline report choice:
+Report baseline:
 
     B = 0
 
-Run-level mapping:
+Mapping:
 
     Eq. (236) return_volatility(...)
     Eq. (237) rms_mispricing(...)
@@ -163,22 +162,20 @@ Implementation:
 
     src/experiments/refined/action_covariance.py
 
-API:
-
     RollingActionCovariancePoint
     rolling_action_covariance(...)
 
 Eq. (239): average pairwise sample covariance of executed actions.
 
-Eq. (240): exact sample decomposition
+Eq. (240): exact rolling sample decomposition
 
     Var_hat(F)
       = sum_i Var_hat(a_i)
       + N(N-1) C_a,t
 
-with denominator `L-1` and explicit validation that stored `F_t=sum_i a_i,t`.
+Stored `F_t=sum_i a_i,t` is validated before decomposition.
 
-Status: VERIFIED at 302-test checkpoint.
+Status: VERIFIED.
 
 ---
 
@@ -187,8 +184,6 @@ Status: VERIFIED at 302-test checkpoint.
 Implementation:
 
     src/experiments/refined/cid.py
-
-API:
 
     RollingCIDComponentsPoint
     CIDReferenceScales
@@ -207,9 +202,7 @@ Mapping:
     Eq. (245) non-negative weights summing to one
     Eq. (246) dimensionless weighted CID
 
-No reference scale is hard-coded or selected from topology rankings.
-
-Status: VERIFIED at 341-test checkpoint.
+Status: VERIFIED.
 
 ---
 
@@ -219,8 +212,6 @@ Implementation:
 
     src/experiments/refined/cid_events.py
 
-API:
-
     CIDThresholdConfiguration
     OperationalStabilisationResult
     CIDRunClassification
@@ -228,25 +219,19 @@ API:
     operational_stabilisation(...)
     threshold_exceedance_rate(...)
 
-Eq. (247): OR across `CID_t > c_CID` and active raw-component guardrails.
+Binding semantics:
 
-Eq. (248): topology-level mean of run-level exceedance indicators.
+    exceedance: strict >
+    stabilisation admissibility: <=
+    inactive guardrail: +infinity
+    no qualifying stabilisation block: right-censored, no artificial time
+    first-stage L_stab = 50
 
-Eq. (249): peak CID and fraction of rolling windows satisfying `CID_t > c_CID`; component guardrail crossings do not enter this duration fraction.
-
-Eq. (250): first start period with `L_stab` consecutive windows satisfying CID and every active guardrail. Exceedance uses strict `>` and stabilisation uses `<=`. Inactive guardrails map to `+infinity`. If no qualifying full block exists, stabilisation is right-censored with `stabilisation_period=None`.
-
-First-stage report default:
-
-    L_stab = 50
-
-No numerical `c_CID` or component guardrail is hard-coded.
-
-Status: VERIFIED at 374-test checkpoint.
+Status: VERIFIED.
 
 ---
 
-## 10. Realised-influence and common-exposure mechanisms, Eqs. (251)-(265)
+## 10. Realised influence and common exposure, Eqs. (251)-(265)
 
 Implementation:
 
@@ -269,85 +254,123 @@ API:
 
 Mapping:
 
-    Eq. (251) H_tilde_i,t = H(w_i,t) / log(d_i^out)
-    Eq. (252) N_eff_i,t = exp(H(w_i,t))
-    Eq. (253) network means of H_tilde and N_eff
-    Eq. (254) s^I_j,t = (1/N) sum_i w_ij,t
-    Eq. (255) source influence shares sum to one
-    Eq. (256) HHI^I_t = sum_j (s^I_j,t)^2
-    Eq. (257) S^I_q,t = sum_{j in H_q(G)} s^I_j,t
-    Eq. (258) pairwise row-attention inner product
-    Eq. (259) aggregate average pairwise overlap
-    Eqs. (260)-(264) equivalent matrix/Frobenius overlap identity
-    Eq. (265) M^W_t = ||W_t-W_{t-1}||_F / sqrt(N)
+    Eqs. (251)-(253) normalised row entropy / effective source count / network means
+    Eqs. (254)-(256) source influence shares and HHI
+    Eq. (257) realised influence of structural hubs H_q(G)
+    Eqs. (258)-(264) average pairwise attention overlap and matrix identity
+    Eq. (265) RMS row-level attention mobility
 
-`H_q(G)` is always selected from directed in-degree in the feasible graph, never from realised attention. The report leaves cutoff ties unspecified; implementation resolves ties by decreasing in-degree then increasing node label as a deterministic reproducibility convention only.
+Structural hubs are selected from directed in-degree in G, never from realised W_t. Cutoff ties are resolved deterministically by decreasing in-degree then increasing node label as a computational convention only.
 
-For fixed-out-degree neutral uniform attention:
+For neutral fixed-out-degree `W_0=G/K`, tests enforce:
 
-    W_0 = G/K
+    s^I_j,0 = d_j^in/(NK)
+    S^I_q,0 = S^G_q
 
-so the implementation/tests enforce:
+Eqs. (266)-(267) KL deviation to a transition prior remain deferred with the attention-inertia extension (`tau>0`).
 
-    s^I_j,0 = d_j^in / (N K)
-
-and therefore:
-
-    S^I_q,0 = S^G_q.
-
-The path evaluator reports periods `t=1,...,T`; concentration and overlap use `W_t`, while mobility uses `(W_{t-1},W_t)`, including the first change from `W_0` to `W_1`.
-
-Agent-level entropy/effective-source arrays and source-level influence shares are retained alongside scalar network summaries.
-
-Eqs. (266)-(267), KL deviation from a transition prior, remain DEFERRED with the attention-inertia extension because the current first-stage rule is frictionless (`tau=0`).
-
-Status: IMPLEMENTED; awaiting Iridis verification. Expected checkpoint: 409 tests.
+Status: VERIFIED at 409-test checkpoint.
 
 ---
 
-## 11. Mechanism chain
+## 11. Pre-topology market calibration protocol
 
-Target chain:
+Implementation:
+
+    src/experiments/refined/market_calibration.py
+
+Decision:
+
+    D042 — First Refined Market-Evaluation Calibration Protocol
+
+API:
+
+    MarketEvaluationCalibrationProtocol
+    MarketEvaluationCalibration
+    first_market_evaluation_calibration_protocol(...)
+    estimate_reference_scales(...)
+    estimate_cid_threshold(...)
+    calibrate_market_evaluation(...)
+
+The protocol is deliberately topology-blind and two-sample:
+
+### Scale sample
+
+    alpha = 0
+    500 replications
+    seed namespace = 2026090201
+
+Estimate:
+
+    c_ret = pooled median(V_ret)
+    c_bel = pooled median(B_bel)
+    c_F   = pooled median(Q_F)
+
+A non-positive median is a calibration failure; no epsilon patch is applied.
+
+### Threshold sample
+
+    alpha = 0
+    500 separate replications
+    seed namespace = 2026090202
+
+Using the already-fixed reference scales and equal CID weights:
+
+    c_CID = empirical 95th percentile of run-level peak CID
+
+with NumPy's deterministic conservative `higher` quantile convention.
+
+Baseline design:
+
+    T = 1000
+    B = 0
+    L = 50
+    robustness L = {25, 100}
+    weights = (1/3,1/3,1/3)
+    component guardrails = inactive
+    L_stab = 50
+
+This module freezes the calibration METHOD only. It does not yet supply numerical `c_ret`, `c_bel`, `c_F`, or `c_CID`.
+
+Status: IMPLEMENTED; awaiting Iridis verification. Expected checkpoint: 445 tests.
+
+---
+
+## 12. Required gate before actual calibration simulation
+
+Actual no-social calibration cannot be run until two additional design objects are frozen:
+
+1. homogeneous baseline `RefinedParameters`;
+2. common non-network initial-condition rule for `theta_0, b_0, x_0, p_0, R_0`.
+
+The report permits neutral `x_0=0`, `R_0=0`, and stationary `theta_0`, but does not uniquely fix `b_0` or `p_0`. Do not invent them silently.
+
+Legacy numerical defaults may be used only as provenance. They cannot automatically override the refined model because the refined price, trading, inventory, profit, and attention equations differ from the legacy pilot.
+
+After those two design objects are frozen:
+
+    build no-social calibration runner
+    run small calibration smoke test
+    run full 500 scale + 500 threshold samples
+    persist calibration output
+    freeze numerical c_ret, c_bel, c_F, c_CID
+    build paired R/SW/SF market-run persistence layer
+    run small paired smoke experiment
+    only then submit confirmatory large Monte Carlo
+
+---
+
+## 13. Mechanism chain
+
+Target measured chain:
 
     feasible topology G
         -> realised W_t
-        -> influence concentration / overlap
+        -> concentration / structural-hub influence / overlap / mobility
         -> action covariance
-        -> aggregate order flow
+        -> aggregate signed order flow
         -> price response / mispricing
 
 A topology difference in volatility alone is insufficient for a strong mechanism claim.
 
----
-
-## 12. Current gate before large market Monte Carlo
-
-Verified:
-
-    core Eqs. (35)-(82)
-    deterministic one/multi-period tests
-    alpha=0 topology-null control
-    refined topology generators
-    structural diagnostics and D041 ensemble validation
-    paired treatment preparation
-    run-level market outcomes
-    rolling action covariance Eqs. (239)-(240)
-    CID Eqs. (241)-(246)
-    threshold/stabilisation Eqs. (247)-(250)
-
-Still required:
-
-    verify realised-influence Eqs. (251)-(265)
-    freeze market-evaluation calibration inputs before topology evaluation:
-        L
-        separate calibration sample/seeds
-        CID reference scales
-        CID weights
-        c_CID
-        optional component guardrails
-        L_stab=50
-    build/verify paired market-run persistence and a small smoke run
-
-Calibration must be independent of observed topology rankings.
-
-Formal stability remains separate and later: equilibrium, full Jacobian `J*`, spectral radius of `J*`, and Lyapunov analysis. Never use the spectral radius of row-stochastic `W` as the market-stability criterion.
+Formal stability remains separate: equilibrium X*, complete Jacobian J*, spectral radius of J*, and Lyapunov analysis. Never use the spectral radius of row-stochastic W as the market-stability criterion.
