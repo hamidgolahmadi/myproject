@@ -1,6 +1,6 @@
 # Project Decisions
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 
 This file records methodological and implementation decisions that should
 remain stable across coding sessions and ChatGPT conversations.
@@ -839,3 +839,71 @@ threshold before inspecting the full distributions.
 If this calibration fails to generate the intended architectural treatments,
 do not proceed to market-outcome interpretation. Recalibration must be
 explicitly documented as a new design decision rather than silently tuned.
+
+---
+
+## D042 — First Refined Market-Evaluation Calibration Protocol
+
+STATUS: FROZEN FOR FIRST CONFIRMATORY MARKET RUN
+
+This decision freezes the calibration METHOD before topology-evaluation market
+runs. It does not yet freeze the numerical values of `c_ret`, `c_bel`, `c_F`,
+or `c_CID`; those values are produced only after the baseline refined market
+parameter vector and the non-network initial-condition rule have themselves
+been frozen.
+
+The first calibration protocol is:
+
+    T = 1000
+    B = 0
+    rolling window L = 50
+    robustness windows = {25, 100}
+    calibration alpha = 0
+    scale-calibration replications = 500
+    scale-calibration seed namespace = 2026090201
+    threshold-calibration replications = 500
+    threshold-calibration seed namespace = 2026090202
+    CID weights = (1/3, 1/3, 1/3)
+    baseline component guardrails = inactive
+    L_stab = 50
+
+Reference-scale sample:
+
+- Use a no-social (`alpha=0`) calibration sample separate from every later
+  topology-evaluation replication.
+- Estimate `c_ret`, `c_bel`, and `c_F` as the pooled medians of their raw
+  rolling components over the scale-calibration sample.
+- If any pooled median is non-positive, stop and review the market
+  specification. Do not silently add an epsilon merely to make the scale
+  positive.
+
+Threshold sample:
+
+- Use a second no-social calibration sample with a disjoint seed namespace.
+- First apply the already-frozen reference scales and equal CID weights.
+- Reduce each threshold-calibration replication to its run-level peak CID.
+- Set `c_CID` to the pre-specified 95th percentile of those run-level peaks.
+- Use the deterministic conservative `higher` empirical-quantile convention.
+
+Rationale:
+
+- A run-level peak threshold controls an operational run-level exceedance
+  frequency in the no-social benchmark. A pointwise 95th-percentile threshold
+  would be crossed almost mechanically somewhere in a long path with many
+  rolling windows.
+- Separate scale and threshold samples avoid using the same calibration shocks
+  both to normalise the diagnostic and to determine its reporting threshold.
+- Equal weights are the transparent baseline identified in the report; they
+  are not welfare weights.
+- Component guardrails are inactive in the baseline so the primary
+  classification is not silently driven by an additional tuned cutoff. Any
+  guardrail exercise is a separately pre-specified robustness analysis.
+- `L=50` is an explicit design choice, not a report equation. It uses 5% of the
+  T=1000 first-stage horizon per rolling statistic; `L=25` and `L=100` are
+  pre-specified robustness windows rather than after-the-fact alternatives.
+- `B=0` and `L_stab=50` follow the report's first-stage definitions.
+
+The scale-calibration seeds, threshold-calibration seeds, and later
+confirmatory topology-evaluation seeds must all be disjoint. Calibration must
+never inspect or optimise the eventual Random/Small-World/Hub topology
+ranking.
