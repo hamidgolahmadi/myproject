@@ -16,9 +16,9 @@ Scientific source of truth:
 
     report1_25_08_2026.pdf
 
-Legacy code is reference/reproducibility only and must never override the report.
+Legacy code is reference/reproducibility only and never overrides the report.
 
-Iridis setup:
+Iridis shell setup:
 
     cd /iridisfs/home/hg2e25/projects/myproject
     module load python/3.12.6
@@ -47,19 +47,19 @@ Evaluation/mechanism layers VERIFIED:
 - Eqs. (239)-(240): rolling action covariance and exact net-flow variance decomposition;
 - Eqs. (241)-(246): CID components, scales, weights, CID;
 - Eqs. (247)-(250): exceedance, duration, stabilisation, right-censoring;
-- Eqs. (251)-(265): attention entropy/effective sources, realised influence shares/HHI, structural-hub realised influence, overlap, mobility.
+- Eqs. (251)-(265): entropy/effective sources, realised influence/HHI, hub influence, overlap, mobility.
 
 Eq. (266)-(267) KL-to-transition-prior remains deferred with attention inertia.
 
-## Verified test checkpoint
+## Latest verified checkpoint
 
-Latest Iridis checkpoint:
+Iridis:
 
-    530 passed in 8.32s
+    568 passed in 14.28s
 
-with clean working tree and branch up to date with `origin/refined-model`.
+with branch up to date and working tree clean.
 
-This verifies D043 implementation as well as all earlier model, evaluation, mechanism, smoke, and calibration-method layers.
+The corrected direct-script entry point is verified by a subprocess regression test.
 
 ## D042 market-evaluation calibration method — FROZEN
 
@@ -76,17 +76,9 @@ This verifies D043 implementation as well as all earlier model, evaluation, mech
     component guardrails = inactive baseline
     L_stab = 50
 
-The numerical `c_ret`, `c_bel`, `c_F`, and `c_CID` do not exist yet.
+Final numerical `c_ret`, `c_bel`, `c_F`, and `c_CID` do not yet exist.
 
 ## D043 first refined baseline — FROZEN AND VERIFIED
-
-Canonical module:
-
-    src/experiments/refined/baseline_specification.py
-
-Canonical documentation:
-
-    docs/REFINED_BASELINE.md
 
 Canonical API:
 
@@ -102,7 +94,7 @@ Frozen design:
     p_sw = 0.02
     a0 = 1.0
 
-Frozen RefinedParameters:
+Frozen parameters:
 
     rho_theta    = 0.985
     sigma_theta  = 0.025
@@ -128,17 +120,17 @@ Frozen neutral non-network initialisation:
     x_0 = 0
     R_0 = 0
 
-`W_0` remains topology-specific uniform graph-supported attention.
+W0 remains graph-supported uniform attention.
 
-## Evidence for sigma_0 freeze
+## sigma_0 evidence and report TODO
 
-The common-random-number OAT sensitivity compared:
+The CRN OAT sensitivity used:
 
     sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+    experiment seed = 2026090203
+    5 paired replications
 
-using the same graph realisations, shocks, initial states, and all other parameters.
-
-Market-scale outcomes were essentially invariant while attention regularisation changed smoothly. At `sigma_0=5e-4`, pooled medians were approximately:
+At the frozen `sigma_0=5e-4`, pooled medians were approximately:
 
     raw local reputation std / sigma_0    1.357
     mean attention mobility                0.02950
@@ -148,94 +140,97 @@ Market-scale outcomes were essentially invariant while attention regularisation 
     RMS mispricing                         0.068518
     projection fraction                    0.14385
 
-The value is frozen because the floor is of the same order as realised local reputation dispersion and therefore regularises near-degenerate score normalisation without dominating adaptive attention.
+REPORT TODO: add the complete sigma_0 sensitivity table to an Appendix / implementation-robustness section. Include at minimum reputation-dispersion ratio, mean/max attention mobility, final W distance, return SD, RMS mispricing, RMS flow per agent, desired-action p95, projection fraction, and inventory-boundary fraction for all five sigma_0 values. The main text should retain only the concise regularisation rationale.
 
-## Report revision TODO — sigma_0 appendix
+## No-social D042 calibration smoke — VERIFIED
 
-When the doctoral report is next revised, add the complete pre-freeze `sigma_0` sensitivity table to an Appendix / implementation-robustness section.
+Smoke-only seeds:
 
-Required grid:
+    scale = 2026090204
+    threshold = 2026090205
 
-    sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+Design:
 
-Report at minimum:
+    3 scale runs + 3 threshold runs
+    alpha = 0
+    N = 100
+    T = 1000
+    B = 0
+    L = 50
+    rolling endpoints/run = 951
 
-    median local reputation dispersion / sigma_0
-    mean attention mobility
-    max attention mobility
-    final W distance from W_0
-    return SD
-    RMS mispricing
-    RMS signed net flow per agent
-    desired-action p95
-    execution-projection fraction
-    inventory-boundary fraction
+Observed smoke-only values:
 
-Use experiment seed `2026090203` and the completed 5-paired-replication CRN sensitivity run. The table is a regularisation-sensitivity diagnostic, not a topology-ranking table.
+    c_ret = 0.003087925449
+    c_bel = 0.004183656828
+    c_F   = 0.1172234222
+    c_CID = 1.713734032
 
-## No-social D042 calibration smoke — IMPLEMENTED, AWAITING IRIDIS VERIFICATION
+Threshold peak CIDs:
 
-New module:
+    1.672320382
+    1.713734032
+    1.386226693
 
-    src/experiments/refined/calibration_smoke.py
+Artifact:
 
-Driver:
+    results/refined/no_social_calibration_smoke/calibration_smoke.json
 
-    scripts/run_refined_no_social_calibration_smoke.py
+It correctly records `final_calibration=false`. These 3+3 values are pipeline evidence only and MUST NOT be frozen or reused as D042 final calibration values.
+
+## Production D042 calibration runner — IMPLEMENTED, AWAITING IRIDIS VERIFICATION
+
+New shared path module:
+
+    src/experiments/refined/no_social_calibration_paths.py
+
+Production runner:
+
+    src/experiments/refined/market_calibration_run.py
+
+CLI:
+
+    scripts/run_refined_market_calibration.py
 
 Tests:
 
-    tests/test_refined_calibration_smoke.py
+    tests/test_refined_market_calibration_run.py
 
-Smoke design:
+Production design:
 
-    scale smoke seed       = 2026090204
-    threshold smoke seed   = 2026090205
-    scale smoke runs       = 3
-    threshold smoke runs   = 3
-    alpha                  = 0
-    N                      = 100
-    T                      = 1000
-    B                      = 0
-    L                      = 50
-    rolling points/run     = 951
+- exact D042 500 scale + 500 threshold counts by default;
+- exact D042 seed namespaces 2026090201 / 2026090202;
+- one canonical valid graph per no-social replication, not R/SW/SF triplets;
+- scale replications checkpoint to compressed NPZ files;
+- threshold replications checkpoint to JSON peak-CID files;
+- every checkpoint is bound to a SHA-256 fingerprint of the full D042 protocol + D043 baseline;
+- threshold checkpoints are also bound to the realised reference-scale fingerprint;
+- stages are resumable after interruption;
+- scale artifact is marked stage-complete but `final_calibration=false`;
+- final artifact is written only after all threshold replications complete;
+- CLI refuses production execution on a hostname containing `login` unless deliberately overridden.
 
-The two smoke namespaces are disjoint from final D042 namespaces `2026090201` and `2026090202`. Because smoke results are inspected, these paths must never be reused in the final 500+500 calibration.
+Computational shortcut:
 
-Each no-social replication uses one canonical directed Random fixed-out-degree support only to keep the state/attention machinery valid. At `alpha=0`, graph/attention do not enter beliefs or market outcomes, so R/SW/SF are NOT replicated or ranked during calibration. This avoids pseudo-replicating one shock path three times.
+At alpha=0, attention does not enter beliefs. Therefore adaptive and fixed attention must generate exactly identical return/belief/order-flow/CID-component paths under common graph/shock/initial-state randomness. The production runner uses `adaptive_attention=False` only after this exact equivalence is regression-tested. This shortcut applies to D042 calibration outcomes only, not to influence/attention diagnostics.
 
-The smoke validates end-to-end:
-
-- frozen D043 baseline with only `alpha` replaced by zero;
-- semantic shock, initial-state, and canonical graph seeds;
-- 951 rolling component points per run;
-- strictly positive pooled median `c_ret`, `c_bel`, and `c_F`;
-- finite standardised CID paths;
-- finite positive run-level peak CIDs and `c_CID`;
-- baseline equal CID weights and inactive component guardrails;
-- persistence of a smoke-only JSON artifact explicitly marked `final_calibration=false`.
-
-New test file contributes 37 pytest cases.
+New production test file contributes 21 cases.
 
 Expected next checkpoint:
 
-    567 passed
+    589 passed
 
 ## Immediate gate
 
 1. Pull latest `refined-model` on Iridis.
-2. Run all refined tests; expected `567 passed`.
-3. If green, run:
+2. Run all refined tests; expected `589 passed`.
+3. Do NOT run `scripts/run_refined_market_calibration.py` directly on `loginX...`.
+4. If tests pass, prepare/submit the production calibration inside an Iridis compute allocation/batch job.
+5. The runner is resumable; interrupted completed replications are reused only when their specification fingerprints match exactly.
+6. After the full 500+500 artifact is produced, inspect and freeze final `c_ret`, `c_bel`, `c_F`, and `c_CID` before any confirmatory topology market experiment.
+7. Then build the paired confirmatory market-output runner and small paired smoke.
 
-       python scripts/run_refined_no_social_calibration_smoke.py
-
-4. Inspect the printed smoke scales/threshold and `results/refined/no_social_calibration_smoke/calibration_smoke.json` only for pipeline validity.
-5. Do NOT freeze these 3+3 numerical values; they are smoke-only.
-6. If the smoke succeeds, build the production D042 calibration runner/output layer.
-7. Then run full 500 scale + 500 threshold no-social samples using only namespaces `2026090201` and `2026090202`.
-8. Persist and freeze final numerical `c_ret`, `c_bel`, `c_F`, and `c_CID` before any confirmatory topology market experiment.
-
-Large confirmatory topology-evaluation Monte Carlo remains prohibited until the final calibration artifact is frozen and a small paired confirmatory market runner has passed.
+Large confirmatory topology-evaluation Monte Carlo remains prohibited until the final calibration artifact is frozen and the paired confirmatory smoke passes.
 
 ## Development status
 
