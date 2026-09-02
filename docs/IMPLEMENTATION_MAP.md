@@ -1,6 +1,6 @@
 # Refined Model Implementation Map
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 
 ## 1. Source of truth
 
@@ -48,6 +48,7 @@ Experiment/evaluation layer:
         structural_io.py
         market_metrics.py
         action_covariance.py
+        cid.py
 
 Rule: economic transition equations live only under `src/model/refined/`. Evaluation modules consume completed `SimulationResult` objects and must not duplicate dynamics.
 
@@ -305,39 +306,84 @@ Eq. (240):
 
 Implementation uses sample covariance/variance with denominator `L-1`, verifies stored `F_t = sum_i a_i,t`, and checks the decomposition numerically at every endpoint.
 
-Status: IMPLEMENTED; awaiting Iridis verification. Expected total after verification: 302 tests.
+Status: VERIFIED at 302-test checkpoint.
 
 ---
 
-## 9. CID block, Eqs. (241)-(250)
+## 9. CID components and normalisation, Eqs. (241)-(246)
+
+Implementation:
+
+    src/experiments/refined/cid.py
+
+Raw rolling API:
+
+    RollingCIDComponentsPoint
+    rolling_cid_components(...)
+
+Calibration objects:
+
+    CIDReferenceScales
+    CIDWeights
+
+Standardised output:
+
+    RollingCIDPoint
+    standardise_cid_components(...)
+    rolling_cid(...)
+
+Window convention follows Eq. (235):
+
+    t = B + L, ..., T
+    W_t^(L) = {t-L+1,...,t}
+
+Mapping:
+
+    Eq. (241) rolling_return_volatility
+        sample SD of returns over the L-period window, denominator L-1
+
+    Eq. (242) rolling_belief_dispersion
+        mean over the window of D_b,u
+
+    D_b,u is implemented as population cross-sectional belief variance:
+        (1/N) sum_i (b_i,u - bbar_u)^2
+
+    This matches the report's explicit Eq. (289) cross-sectional belief-variance definition.
+
+    Eq. (243) rms_order_flow_pressure
+        sqrt(mean_u[(F_u/N)^2])
+
+    Eq. (244) CIDReferenceScales
+        positive c_ret, c_bel, c_F supplied explicitly
+
+    Eq. (245) CIDWeights
+        non-negative omega_ret, omega_bel, omega_F summing to one
+
+    Eq. (246) RollingCIDPoint.cid
+        weighted sum of the three standardised components
+
+No reference scale is hard-coded or estimated from topology rankings. `CIDWeights.equal()` is only a convenience constructor for the report's transparent equal-weight baseline and does not itself freeze the experiment design.
+
+Status: IMPLEMENTED; awaiting Iridis verification. Expected total after verification: 341 tests.
+
+---
+
+## 10. Threshold and operational-stabilisation block, Eqs. (247)-(250)
 
 Next staged implementation.
 
 Planned mapping:
 
-    Eqs. (241)-(243)
-        rolling return volatility
-        rolling belief dispersion
-        RMS net-order-flow pressure
+    Eq. (247) threshold-exceedance indicator with optional component guardrails
+    Eq. (248) topology-specific exceedance rate at ensemble stage
+    Eq. (249) peak CID and fraction of evaluated windows above CID threshold
+    Eq. (250) operational stabilisation requiring L_stab consecutive admissible windows, with right-censoring if absent
 
-    Eqs. (244)-(246)
-        fixed reference scales
-        dimensionless standardisation
-        weighted CID
-
-    Eqs. (247)-(249)
-        threshold-exceedance indicator
-        peak CID
-        exceedance-duration share
-
-    Eq. (250)
-        operational stabilisation with right-censoring
-
-Binding design rule: `L`, reference scales, CID weights, thresholds, component guardrails, and `L_stab` must be fixed before topology-evaluation market Monte Carlo and may not be selected from observed topology rankings.
+Binding design rule: numerical thresholds, component guardrails, and `L_stab` must be fixed before topology-evaluation market Monte Carlo and may not be selected from observed topology rankings.
 
 ---
 
-## 10. Realised-influence mechanisms, Eqs. (251)-(267)
+## 11. Realised-influence mechanisms, Eqs. (251)-(267)
 
 Planned implementation:
 
@@ -357,7 +403,7 @@ Eq. (266)-(267) KL-to-transition-prior is deferred with the attention-inertia ex
 
 ---
 
-## 11. Mechanism chain
+## 12. Mechanism chain
 
 Target measurement chain:
 
@@ -372,7 +418,7 @@ A topology difference in volatility alone is insufficient for a strong mechanism
 
 ---
 
-## 12. Later stages
+## 13. Later stages
 
 Formal stability is separate from simulation diagnostics:
 
@@ -387,7 +433,7 @@ Do not use the spectral radius of row-stochastic `W` as the market-stability cri
 
 ---
 
-## 13. Current gate before large market Monte Carlo
+## 14. Current gate before large market Monte Carlo
 
 Verified:
 
@@ -398,11 +444,12 @@ Verified:
     structural diagnostics and D041 ensemble validation
     paired treatment preparation
     run-level market outcomes
+    rolling action covariance Eqs. (239)-(240)
 
 Still required:
 
-    verify rolling action covariance Eqs. (239)-(240)
-    implement/verify CID Eqs. (241)-(250)
+    verify CID Eqs. (241)-(246)
+    implement/verify threshold and stabilisation Eqs. (247)-(250)
     freeze CID calibration inputs before topology evaluation
     implement/verify required realised-influence mechanism metrics
 
