@@ -4,9 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from src.experiments.refined.calibration_smoke import (
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.experiments.refined.calibration_smoke import (  # noqa: E402
     NoSocialCalibrationSmokeProtocol,
     run_no_social_calibration_smoke,
     write_no_social_calibration_smoke,
@@ -18,7 +24,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--outdir",
         type=Path,
-        default=Path("results/refined/no_social_calibration_smoke"),
+        default=PROJECT_ROOT / "results" / "refined" / "no_social_calibration_smoke",
     )
     parser.add_argument(
         "--n-scale-replications",
