@@ -67,6 +67,12 @@ from .market_smoke import (
 )
 from .paired import PairedReplicationPlan, ReplicationSeeds, prepare_paired_replication
 from .seeding import derive_graph_seed, derive_semantic_seed
+from .sigma0_sensitivity import (
+    Sigma0SensitivityProtocol,
+    Sigma0SensitivityResult,
+    Sigma0SensitivityRow,
+    run_sigma0_sensitivity_smoke,
+)
 from .structural import (
     DistributionSummary,
     StructuralEnsembleRecord,
@@ -105,6 +111,9 @@ __all__ = [
     "RollingCIDComponentsPoint",
     "RollingCIDPoint",
     "RunLevelMarketOutcomes",
+    "Sigma0SensitivityProtocol",
+    "Sigma0SensitivityResult",
+    "Sigma0SensitivityRow",
     "SmokeMetricSummary",
     "StructuralEnsembleRecord",
     "StructuralEnsembleResult",
@@ -144,6 +153,7 @@ __all__ = [
     "rolling_cid",
     "rolling_cid_components",
     "run_first_refined_baseline_scale_smoke",
+    "run_sigma0_sensitivity_smoke",
     "run_structural_ensemble",
     "standardise_cid_components",
     "structural_hub_nodes",
