@@ -2,375 +2,210 @@
 
 Last updated: 2026-09-02
 
-## 1. Source of truth
+Scientific source of truth: `report1_25_08_2026.pdf`. Legacy code is reference only.
 
-Scientific source of truth:
+## Core runtime — Eqs. (35)-(82)
 
-    report1_25_08_2026.pdf
-
-If this map conflicts with the report, the report wins. Legacy code is reference/reproducibility only.
-
----
-
-## 2. Architecture
-
-Core economic runtime:
-
-    src/model/refined/
-
-Topology layer:
-
-    src/topologies/refined/
-        generators.py
-        diagnostics.py
-
-Experiment/evaluation layer:
-
-    src/experiments/refined/
-        seeding.py
-        paired.py
-        treatments.py
-        structural.py
-        calibration.py
-        structural_io.py
-        market_metrics.py
-        action_covariance.py
-        cid.py
-        cid_events.py
-        influence_metrics.py
-        market_calibration.py
-
-Rule: economic transition equations live only under `src/model/refined/`. Evaluation and calibration modules consume completed outputs and must not duplicate or alter the transition law.
-
----
-
-## 3. Core runtime, Eqs. (35)-(82)
-
-Persistent state:
-
-    X_t = (theta_t, b_t, x_t, p_t, R_t, W_t)
-
-Binding Eq. (39) coordinator:
-
+    src/model/refined/state.py
+    src/model/refined/shocks.py
+    src/model/refined/fundamentals.py
+    src/model/refined/beliefs.py
+    src/model/refined/trading.py
+    src/model/refined/market.py
+    src/model/refined/reputation.py
+    src/model/refined/attention.py
     src/model/refined/transition.py
-    transition_one_period(...)
-
-Critical timing:
-
-    b_t uses W_{t-1}; W_t first affects b_{t+1}
-
-Key mapping:
-
-    Eqs. (35)-(41) state.py, attention.py
-    Eqs. (42)-(47) fundamentals.py, shocks.py
-    Eqs. (48)-(55) beliefs.py
-    Eqs. (56)-(62) attention.py
-    Eqs. (63)-(73) trading.py
-    Eqs. (74)-(79) market.py, reputation.py
-    Eqs. (80)-(82) transition.py
-
-Multi-period wrapper:
-
     src/model/refined/simulator.py
-    SimulationResult
-    simulate_shock_path(...)
+
+Binding transition:
+
+    W_{t-1}
+      -> theta_t, v_t, s_t
+      -> b_t
+      -> vhat_t -> m_t -> desired action -> executed action
+      -> x_t -> F_t -> p_t -> r_t -> pi_t -> R_t -> z_t -> W_t
 
 Status: VERIFIED.
 
----
-
-## 4. Randomness and paired topology design
-
-Semantic seed architecture:
+## Paired design and semantic randomness
 
     src/experiments/refined/seeding.py
     src/experiments/refined/paired.py
-
-Roles include:
-
-    replication_id
-    graph_seed
-    shock_seed
-    initial_state_seed
-    type_assignment_seed
-
-Paired treatment preparation:
-
     src/experiments/refined/treatments.py
-    prepare_paired_treatments(...)
 
-Common within replication: shocks, non-network initial conditions, parameters, horizon, evaluation definitions.
+Common within paired replication: shock path, non-network initial state, parameters, horizon, evaluation definitions.
 
-Topology-specific: graph seed/realisation and graph-supported `W_0`.
+Topology-specific: graph seed, realised G, graph-supported W0.
 
-Generated-treatment `alpha=0` topology-null control: VERIFIED.
+Generated-treatment alpha=0 topology-null control: VERIFIED.
 
----
-
-## 5. Benchmark graph generation and structural validation
-
-Generators:
+## Topology generation and structural validation
 
     src/topologies/refined/generators.py
-    generate_random_fixed_out_degree(...)
-    generate_small_world(...)
-    generate_hub_dominated(...)
-
-Structural diagnostics, Eqs. (203)-(211):
-
     src/topologies/refined/diagnostics.py
-
-Matched structural ensemble runner:
-
     src/experiments/refined/structural.py
+    src/experiments/refined/calibration.py
+    src/experiments/refined/structural_io.py
+    scripts/run_refined_structural_validation.py
 
-D041 1000-graph-per-topology structural validation: COMPLETED SUCCESSFULLY.
+Report mapping:
 
----
+    Eqs. (183)-(212): topology definitions / relabelling
+    Eqs. (203)-(211): structural diagnostics
 
-## 6. Run-level market outcomes
+D041 structural run: COMPLETE and VERIFIED. R/SW/SF are strongly separated in intended structural dimensions.
 
-Implementation:
+## Market outcomes and CID
 
     src/experiments/refined/market_metrics.py
-
-Evaluation sample, Eqs. (231)-(235):
-
-    T_B = {B+1,...,T}
-    W_t^(L) = {t-L+1,...,t}
-
-Report baseline:
-
-    B = 0
-
-Mapping:
-
-    Eq. (236) return_volatility(...)
-    Eq. (237) rms_mispricing(...)
-    Eq. (237) maximum_absolute_mispricing(...)
-    Eq. (238) mean_absolute_order_flow_per_agent(...)
-    Eq. (288) mean_absolute_return(...)
-    Eq. (289) time_averaged_belief_variance(...)
-
-Status: VERIFIED.
-
----
-
-## 7. Rolling action covariance, Eqs. (239)-(240)
-
-Implementation:
-
     src/experiments/refined/action_covariance.py
-
-    RollingActionCovariancePoint
-    rolling_action_covariance(...)
-
-Eq. (239): average pairwise sample covariance of executed actions.
-
-Eq. (240): exact rolling sample decomposition
-
-    Var_hat(F)
-      = sum_i Var_hat(a_i)
-      + N(N-1) C_a,t
-
-Stored `F_t=sum_i a_i,t` is validated before decomposition.
-
-Status: VERIFIED.
-
----
-
-## 8. CID components and normalisation, Eqs. (241)-(246)
-
-Implementation:
-
     src/experiments/refined/cid.py
-
-    RollingCIDComponentsPoint
-    CIDReferenceScales
-    CIDWeights
-    RollingCIDPoint
-    rolling_cid_components(...)
-    standardise_cid_components(...)
-    rolling_cid(...)
-
-Mapping:
-
-    Eq. (241) rolling sample return volatility
-    Eq. (242) rolling mean of population cross-sectional belief variance
-    Eq. (243) RMS signed net-order-flow pressure sqrt(mean[(F/N)^2])
-    Eq. (244) explicit positive reference scales
-    Eq. (245) non-negative weights summing to one
-    Eq. (246) dimensionless weighted CID
-
-Status: VERIFIED.
-
----
-
-## 9. Threshold exceedance and operational stabilisation, Eqs. (247)-(250)
-
-Implementation:
-
     src/experiments/refined/cid_events.py
 
-    CIDThresholdConfiguration
-    OperationalStabilisationResult
-    CIDRunClassification
-    classify_cid_path(...)
-    operational_stabilisation(...)
-    threshold_exceedance_rate(...)
+Mapping:
 
-Binding semantics:
-
-    exceedance: strict >
-    stabilisation admissibility: <=
-    inactive guardrail: +infinity
-    no qualifying stabilisation block: right-censored, no artificial time
-    first-stage L_stab = 50
+    Eqs. (231)-(235): evaluation sample / full rolling windows
+    Eqs. (236)-(238): RV, RMSM, MAM, MAF
+    Eqs. (239)-(240): rolling pairwise action covariance + exact Var(F) decomposition
+    Eqs. (241)-(246): CID raw components, reference scales, weights, CID
+    Eqs. (247)-(250): exceedance, duration, operational stabilisation, censoring
+    Eqs. (288)-(289): MAR and time-averaged cross-sectional belief variance
 
 Status: VERIFIED.
 
----
+Important conventions:
 
-## 10. Realised influence and common exposure, Eqs. (251)-(265)
+    return volatility uses sample SD
+    belief dispersion uses population cross-sectional variance
+    MAF and Q_F use signed net flow F_t, not gross volume
+    exceedance uses >
+    stabilisation admissibility uses <=
+    L_stab = 50 in first-stage report protocol
+    no artificial stabilisation time for censored runs
 
-Implementation:
+## Realised influence and common exposure — Eqs. (251)-(265)
 
     src/experiments/refined/influence_metrics.py
 
-API:
+Implements:
 
-    structural_hub_nodes(...)
-    attention_entropy(...)
-    normalised_attention_entropy(...)
-    effective_number_of_sources(...)
-    realised_influence_shares(...)
-    realised_influence_hhi(...)
-    realised_hub_influence_share(...)
-    attention_overlap(...)
-    attention_mobility(...)
-    RealisedInfluencePoint
-    RealisedInfluencePath
-    realised_influence_path(...)
+    normalised attention entropy
+    effective number of sources
+    realised source influence shares
+    realised-influence HHI
+    realised influence share of structural hubs H_q(G)
+    attention overlap and equivalent matrix identity
+    RMS attention mobility
 
-Mapping:
+Structural hubs are selected from directed in-degree in G, never from W_t.
 
-    Eqs. (251)-(253) normalised row entropy / effective source count / network means
-    Eqs. (254)-(256) source influence shares and HHI
-    Eq. (257) realised influence of structural hubs H_q(G)
-    Eqs. (258)-(264) average pairwise attention overlap and matrix identity
-    Eq. (265) RMS row-level attention mobility
+Neutral fixed-out-degree identity enforced:
 
-Structural hubs are selected from directed in-degree in G, never from realised W_t. Cutoff ties are resolved deterministically by decreasing in-degree then increasing node label as a computational convention only.
-
-For neutral fixed-out-degree `W_0=G/K`, tests enforce:
-
-    s^I_j,0 = d_j^in/(NK)
+    W0 = G/K
+    s^I_j,0 = d^in_j/(N K)
     S^I_q,0 = S^G_q
 
-Eqs. (266)-(267) KL deviation to a transition prior remain deferred with the attention-inertia extension (`tau>0`).
+Eqs. (266)-(267) KL-to-transition-prior remain deferred with attention inertia.
 
-Status: VERIFIED at 409-test checkpoint.
+Status: VERIFIED.
 
----
-
-## 11. Pre-topology market calibration protocol
-
-Implementation:
+## Market-evaluation calibration method — D042
 
     src/experiments/refined/market_calibration.py
 
-Decision:
-
-    D042 — First Refined Market-Evaluation Calibration Protocol
-
-API:
-
-    MarketEvaluationCalibrationProtocol
-    MarketEvaluationCalibration
-    first_market_evaluation_calibration_protocol(...)
-    estimate_reference_scales(...)
-    estimate_cid_threshold(...)
-    calibrate_market_evaluation(...)
-
-The protocol is deliberately topology-blind and two-sample:
-
-### Scale sample
-
-    alpha = 0
-    500 replications
-    seed namespace = 2026090201
-
-Estimate:
-
-    c_ret = pooled median(V_ret)
-    c_bel = pooled median(B_bel)
-    c_F   = pooled median(Q_F)
-
-A non-positive median is a calibration failure; no epsilon patch is applied.
-
-### Threshold sample
-
-    alpha = 0
-    500 separate replications
-    seed namespace = 2026090202
-
-Using the already-fixed reference scales and equal CID weights:
-
-    c_CID = empirical 95th percentile of run-level peak CID
-
-with NumPy's deterministic conservative `higher` quantile convention.
-
-Baseline design:
+Method:
 
     T = 1000
     B = 0
     L = 50
-    robustness L = {25, 100}
-    weights = (1/3,1/3,1/3)
-    component guardrails = inactive
+    robustness L = {25,100}
+    alpha_calibration = 0
+
+    scale sample:
+        500 runs, namespace 2026090201
+        c_ret, c_bel, c_F = pooled medians of raw rolling components
+
+    threshold sample:
+        500 separate runs, namespace 2026090202
+        c_CID = 95th percentile of run-level peak CID
+        quantile convention = higher
+
+    weights = equal thirds
+    baseline component guardrails = inactive
     L_stab = 50
 
-This module freezes the calibration METHOD only. It does not yet supply numerical `c_ret`, `c_bel`, `c_F`, or `c_CID`.
+Status: VERIFIED at 445-test checkpoint.
 
-Status: IMPLEMENTED; awaiting Iridis verification. Expected checkpoint: 445 tests.
+This freezes the METHOD only. Numerical scales and c_CID must not be produced until the maintained refined market specification is fixed.
 
----
+## Provisional refined baseline specification — NEW
 
-## 12. Required gate before actual calibration simulation
+    src/experiments/refined/baseline_specification.py
+    docs/REFINED_BASELINE_CANDIDATE.md
 
-Actual no-social calibration cannot be run until two additional design objects are frozen:
+Status: PROVISIONAL, AWAITING IRIDIS TEST + SCALE SMOKE.
 
-1. homogeneous baseline `RefinedParameters`;
-2. common non-network initial-condition rule for `theta_0, b_0, x_0, p_0, R_0`.
+Candidate dimensions:
 
-The report permits neutral `x_0=0`, `R_0=0`, and stationary `theta_0`, but does not uniquely fix `b_0` or `p_0`. Do not invent them silently.
+    N = 100
+    K = 6
+    T = 1000
+    q = 5
+    p_sw = 0.02
+    a0 = 1.0
 
-Legacy numerical defaults may be used only as provenance. They cannot automatically override the refined model because the refined price, trading, inventory, profit, and attention equations differ from the legacy pilot.
+Candidate `RefinedParameters`:
 
-After those two design objects are frozen:
+    rho_theta    = 0.985
+    sigma_theta  = 0.025
+    v_bar        = 0.0
+    psi          = 1.0
+    sigma_s      = 0.06
+    sigma_b      = 0.025
+    alpha        = 0.75
+    kappa        = 2.4
+    x_bar        = 5.0
+    chi          = 0.02
+    lambda_price = 0.0002
+    sigma_p      = 0.001
+    gamma_R      = 0.9
+    beta         = 1.0
+    sigma_0      = 1e-6
 
-    build no-social calibration runner
-    run small calibration smoke test
-    run full 500 scale + 500 threshold samples
-    persist calibration output
-    freeze numerical c_ret, c_bel, c_F, c_CID
-    build paired R/SW/SF market-run persistence layer
-    run small paired smoke experiment
-    only then submit confirmatory large Monte Carlo
+Provisional non-network initialisation:
 
----
+    theta_0 ~ stationary N(0, sigma_theta^2/(1-rho_theta^2))
+    b_i,0 = theta_0
+    p_0 = v_bar + psi theta_0
+    x_0 = 0
+    R_0 = 0
 
-## 13. Mechanism chain
+`W_0` remains generated separately from G using the frozen uniform-support rule.
 
-Target measured chain:
+The candidate uses pilot values only as provenance where units/roles remain comparable. Pilot level-price coefficients are converted to refined normalised return units before use as candidate anchors. `chi`, `x_bar`, and `sigma_0` are genuinely new refined choices and must be assessed by smoke diagnostics.
 
-    feasible topology G
-        -> realised W_t
-        -> concentration / structural-hub influence / overlap / mobility
-        -> action covariance
-        -> aggregate signed order flow
-        -> price response / mispricing
+New tests:
 
-A topology difference in volatility alone is insufficient for a strong mechanism claim.
+    tests/test_refined_baseline_specification.py
 
-Formal stability remains separate: equilibrium X*, complete Jacobian J*, spectral radius of J*, and Lyapunov analysis. Never use the spectral radius of row-stochastic W as the market-stability criterion.
+Expected next checkpoint:
+
+    474 tests
+
+## Current gate before calibration / confirmatory Monte Carlo
+
+Do not run D042 500+500 calibration yet.
+
+Required order:
+
+1. verify 474-test checkpoint;
+2. build small paired scale/non-degeneracy smoke runner for the provisional baseline;
+3. inspect scale only, not topology rankings;
+4. verify returns/mispricing/net flow/action saturation/inventory contacts/reputation scale/influence diagnostics/finiteness;
+5. if non-degenerate, promote candidate to frozen baseline decision;
+6. run small no-social calibration smoke;
+7. run full D042 500+500 calibration and persist c_ret, c_bel, c_F, c_CID;
+8. build paired market-output persistence layer and small paired smoke;
+9. only then submit large confirmatory topology Monte Carlo.
+
+Formal stability remains a later and separate task: equilibrium X*, complete Jacobian J*, spr(J*), Lyapunov analysis. The spectral radius of row-stochastic W is never the market-stability criterion.
