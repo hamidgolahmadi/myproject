@@ -56,13 +56,13 @@ def _uniform_attention(graph: np.ndarray) -> np.ndarray:
 
 
 def _concentrated_regular_attention() -> np.ndarray:
-    # Each row places all mass on one feasible source.  Sources are all distinct.
+    # Each row places all mass on one feasible source. Sources are all distinct.
     return np.array(
         [
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 1.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0, 0.0],
         ]
     )
 
@@ -73,7 +73,7 @@ def _shared_regular_attention() -> np.ndarray:
         [
             [0.0, 1.0, 0.0, 0.0],
             [0.0, 0.0, 1.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
             [0.0, 1.0, 0.0, 0.0],
         ]
     )
@@ -235,7 +235,7 @@ def test_uniform_regular_influence_hhi_is_one_over_n():
 
 
 def test_shared_one_hot_attention_raises_global_influence_hhi():
-    # Source shares are [1/4, 1/2, 1/4, 0].
+    # Source shares are [0, 1/2, 1/4, 1/4].
     assert realised_influence_hhi(
         _shared_regular_attention(),
         REGULAR_GRAPH,
