@@ -21,6 +21,14 @@ from .cid import (
     rolling_cid_components,
     standardise_cid_components,
 )
+from .cid_events import (
+    CIDRunClassification,
+    CIDThresholdConfiguration,
+    OperationalStabilisationResult,
+    classify_cid_path,
+    operational_stabilisation,
+    threshold_exceedance_rate,
+)
 from .market_metrics import (
     RunLevelMarketOutcomes,
     compute_run_level_market_outcomes,
@@ -54,9 +62,12 @@ from .treatments import (
 
 __all__ = [
     "CIDReferenceScales",
+    "CIDRunClassification",
+    "CIDThresholdConfiguration",
     "CIDWeights",
     "DistributionSummary",
     "NonNetworkInitialConditions",
+    "OperationalStabilisationResult",
     "PairedReplicationPlan",
     "PreparedTopologyTreatment",
     "ReplicationSeeds",
@@ -69,6 +80,7 @@ __all__ = [
     "StructuralValidationCalibration",
     "TopologySpecification",
     "TopologyStructuralSummary",
+    "classify_cid_path",
     "compute_run_level_market_outcomes",
     "derive_graph_seed",
     "derive_semantic_seed",
@@ -76,6 +88,7 @@ __all__ = [
     "maximum_absolute_mispricing",
     "mean_absolute_order_flow_per_agent",
     "mean_absolute_return",
+    "operational_stabilisation",
     "prepare_paired_replication",
     "prepare_paired_treatments",
     "return_volatility",
@@ -85,6 +98,7 @@ __all__ = [
     "rolling_cid_components",
     "run_structural_ensemble",
     "standardise_cid_components",
+    "threshold_exceedance_rate",
     "time_averaged_belief_variance",
     "write_structural_result",
 ]
