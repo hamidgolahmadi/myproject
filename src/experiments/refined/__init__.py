@@ -12,6 +12,15 @@ from .calibration import (
     StructuralValidationCalibration,
     first_structural_validation_calibration,
 )
+from .cid import (
+    CIDReferenceScales,
+    CIDWeights,
+    RollingCIDComponentsPoint,
+    RollingCIDPoint,
+    rolling_cid,
+    rolling_cid_components,
+    standardise_cid_components,
+)
 from .market_metrics import (
     RunLevelMarketOutcomes,
     compute_run_level_market_outcomes,
@@ -44,12 +53,16 @@ from .treatments import (
 )
 
 __all__ = [
+    "CIDReferenceScales",
+    "CIDWeights",
     "DistributionSummary",
     "NonNetworkInitialConditions",
     "PairedReplicationPlan",
     "PreparedTopologyTreatment",
     "ReplicationSeeds",
     "RollingActionCovariancePoint",
+    "RollingCIDComponentsPoint",
+    "RollingCIDPoint",
     "RunLevelMarketOutcomes",
     "StructuralEnsembleRecord",
     "StructuralEnsembleResult",
@@ -68,7 +81,10 @@ __all__ = [
     "return_volatility",
     "rms_mispricing",
     "rolling_action_covariance",
+    "rolling_cid",
+    "rolling_cid_components",
     "run_structural_ensemble",
+    "standardise_cid_components",
     "time_averaged_belief_variance",
     "write_structural_result",
 ]
