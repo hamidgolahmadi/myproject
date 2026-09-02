@@ -48,11 +48,6 @@ Generated-treatment alpha=0 topology-null control: VERIFIED.
     src/experiments/refined/structural_io.py
     scripts/run_refined_structural_validation.py
 
-Report mapping:
-
-    Eqs. (183)-(212): topology definitions / relabelling
-    Eqs. (203)-(211): structural diagnostics
-
 D041 structural run: COMPLETE and VERIFIED.
 
 ## Market outcomes and CID
@@ -128,16 +123,33 @@ Method:
 
 Status: VERIFIED at 445-test checkpoint.
 
-This freezes the METHOD only. Numerical scales and c_CID must not be produced until the maintained refined market specification is fixed.
+This freezes the calibration METHOD only. Numerical scales and `c_CID` are produced later under the frozen D043 market specification.
 
-## Provisional refined baseline specification
+## Frozen first refined baseline — D043
+
+Canonical implementation:
 
     src/experiments/refined/baseline_specification.py
+
+Canonical documentation:
+
+    docs/REFINED_BASELINE.md
+
+Archived candidate history:
+
     docs/REFINED_BASELINE_CANDIDATE.md
 
-Status: PROVISIONAL, NOT YET FROZEN.
+Canonical API:
 
-Candidate dimensions:
+    RefinedBaselineSpecification
+    first_refined_baseline_specification()
+
+Compatibility aliases:
+
+    RefinedBaselineCandidate
+    first_refined_baseline_candidate()
+
+Frozen design:
 
     N = 100
     K = 6
@@ -146,7 +158,7 @@ Candidate dimensions:
     p_sw = 0.02
     a0 = 1.0
 
-Candidate parameters:
+Frozen parameters:
 
     rho_theta    = 0.985
     sigma_theta  = 0.025
@@ -162,9 +174,9 @@ Candidate parameters:
     sigma_p      = 0.001
     gamma_R      = 0.9
     beta         = 1.0
-    sigma_0      = 1e-6   # under explicit pre-freeze review
+    sigma_0      = 0.0005
 
-Provisional non-network initialisation:
+Frozen non-network initialisation:
 
     theta_0 ~ stationary N(0, sigma_theta^2/(1-rho_theta^2))
     b_i,0 = theta_0
@@ -174,71 +186,38 @@ Provisional non-network initialisation:
 
 W0 remains graph-supported uniform attention.
 
-## Pre-freeze baseline scale smoke — VERIFIED AND RUN
+The original candidate used `sigma_0=1e-6`.  A topology-blind scale smoke and a common-random-number OAT sensitivity over `{1e-6,1e-4,5e-4,1e-3,2e-3}` showed that market-scale outcomes were essentially invariant while attention regularisation changed smoothly.  `sigma_0=5e-4` is frozen because it is comparable to realised local reputation dispersion, so the Eq. (58) floor is meaningful near degeneracy without dominating the attention signal.
+
+D043 code/test changes await the next Iridis checkpoint. Expected total: 530 tests.
+
+## Pre-freeze smoke infrastructure — retained for provenance/robustness
 
     src/experiments/refined/market_smoke.py
     scripts/run_refined_baseline_scale_smoke.py
     tests/test_refined_market_smoke.py
 
-Verified at the 504-test checkpoint and executed on Iridis with five paired replications / 15 treatment runs.
-
-Key pooled medians:
-
-    return_std                              0.00342286
-    rms_mispricing                          0.0685422
-    rms_flow_per_agent                      0.101498
-    desired_action_abs_p95                  0.304871
-    desired_action_saturation_fraction      0.0
-    execution_projection_fraction           0.14608
-    inventory_boundary_fraction             0.14608
-    median_local_reputation_std              0.000672808
-    median_reputation_scale_to_sigma0        672.808
-    mean_attention_mobility                  0.0492363
-    max_attention_mobility                   0.664115
-    final_attention_distance_from_initial    0.379522
-
-Interpretation: return/mispricing/flow scales are finite and non-degenerate, actions are not tanh-saturated, and inventory bounds are active but not mechanically dominant. The unresolved pre-freeze parameter is sigma_0 because the provisional floor is hundreds of times smaller than typical local reputation dispersion.
-
-## sigma_0 common-random-number sensitivity gate — NEW
-
     src/experiments/refined/sigma0_sensitivity.py
     scripts/run_refined_sigma0_sensitivity_smoke.py
     tests/test_refined_sigma0_sensitivity.py
 
-Purpose: evaluate only the regularisation scale of Eq. (58) before freezing the baseline.
+These modules consume canonical simulations and compute absolute diagnostics only. They do not estimate topology treatment effects.
 
-Controlled OAT grid:
+Verified smoke checkpoint before D043 freeze:
 
-    sigma_0 in {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
+    528 passed in 8.31s
 
-Design:
-
-    experiment_seed = 2026090203
-    paired replications = 5
-    same replication ids for every sigma_0
-    graph/shock/initial-state randomness common across sigma_0 values
-    only sigma_0 changes
-
-Output is pooled across topology labels. No topology contrasts/rankings are computed. Reported metrics include reputation dispersion relative to sigma_0, attention mobility/distance, return scale, mispricing, signed flow and inventory projection.
-
-New test file contributes 24 cases.
-
-Expected checkpoint:
-
-    528 tests
-
-## Current gate before calibration / confirmatory Monte Carlo
+## Current gate before full calibration / confirmatory Monte Carlo
 
 Required order:
 
-1. verify 528-test checkpoint;
-2. run `python scripts/run_refined_sigma0_sensitivity_smoke.py`;
-3. select sigma_0 on regularisation/scale grounds only;
-4. document and freeze the complete baseline vector if the selected specification remains non-degenerate;
-5. recheck alpha=0 topology-null property under the frozen vector;
-6. run small no-social D042 calibration smoke;
-7. run full D042 500+500 calibration and persist c_ret, c_bel, c_F, c_CID;
-8. build paired market-output persistence layer and small paired smoke;
-9. only then submit large confirmatory topology Monte Carlo.
+1. verify D043 implementation at expected 530-test checkpoint;
+2. build a small end-to-end no-social D042 calibration smoke under D043;
+3. validate positive rolling component medians, finite CID paths, run-level peak construction, disjoint scale/threshold seeds, expected rolling endpoint counts, and calibration-artifact persistence;
+4. only then run the full D042 500 scale + 500 threshold no-social samples;
+5. persist and freeze numerical `c_ret`, `c_bel`, `c_F`, and `c_CID`;
+6. build paired market-output persistence layer and a small confirmatory paired smoke;
+7. only then submit large confirmatory topology Monte Carlo.
 
-Formal stability remains separate: equilibrium X*, complete Jacobian J*, spr(J*), Lyapunov analysis. The spectral radius of row-stochastic W is never the market-stability criterion.
+The calibration and confirmatory seed namespaces must remain disjoint. No calibration step may inspect or optimise the eventual R/SW/SF ranking.
+
+Formal stability remains separate: equilibrium X*, complete Jacobian J*, `spr(J*)`, Lyapunov analysis. The spectral radius of row-stochastic W is never the market-stability criterion.
