@@ -14,37 +14,31 @@ machinery valid.  No topology comparison or ranking is produced.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
 
 import numpy as np
 
-from src.model.refined import (
-    generate_shock_path,
-    initialise_state,
-    simulate_shock_path,
-    uniform_attention_from_graph,
-)
-from src.topologies.refined import generate_random_fixed_out_degree
-
 from .baseline_specification import (
     RefinedBaselineSpecification,
     first_refined_baseline_specification,
-    generate_neutral_nonnetwork_initial_conditions,
 )
-from .cid import RollingCIDComponentsPoint, rolling_cid_components, standardise_cid_components
+from .cid import RollingCIDComponentsPoint, standardise_cid_components
 from .market_calibration import (
     MarketEvaluationCalibration,
     MarketEvaluationCalibrationProtocol,
     calibrate_market_evaluation,
     first_market_evaluation_calibration_protocol,
 )
-from .seeding import derive_graph_seed, derive_semantic_seed, nonnegative_integer
+from .no_social_calibration_paths import (
+    no_social_component_path,
+    no_social_parameters as _no_social_parameters,
+)
+from .seeding import nonnegative_integer
 
 
 _SMOKE_PURPOSE = "small no-social end-to-end calibration smoke; not final D042 calibration"
-_CALIBRATION_GRAPH_LABEL = "CAL"
 
 
 def _positive_integer(name: str, value: int) -> int:
@@ -141,14 +135,6 @@ class NoSocialCalibrationSmokeResult:
             raise ValueError("threshold peak CID values must be finite and positive")
 
 
-
-def _no_social_parameters(baseline: RefinedBaselineSpecification):
-    parameters = replace(baseline.parameters, alpha=0.0)
-    if parameters.alpha != 0.0:
-        raise RuntimeError("calibration smoke failed to impose alpha=0")
-    return parameters
-
-
 def _component_path(
     *,
     experiment_seed: int,
@@ -156,67 +142,15 @@ def _component_path(
     baseline: RefinedBaselineSpecification,
     protocol: MarketEvaluationCalibrationProtocol,
 ) -> tuple[RollingCIDComponentsPoint, ...]:
-    """Generate one canonical no-social calibration component path."""
+    """Compatibility wrapper retaining the smoke's fully adaptive path."""
 
-    parameters = _no_social_parameters(baseline)
-    shock_seed = derive_semantic_seed(
+    return no_social_component_path(
         experiment_seed=experiment_seed,
         replication_id=replication_id,
-        role="shock",
-    )
-    initial_state_seed = derive_semantic_seed(
-        experiment_seed=experiment_seed,
-        replication_id=replication_id,
-        role="initial_state",
-    )
-    graph_seed = derive_graph_seed(
-        experiment_seed=experiment_seed,
-        replication_id=replication_id,
-        topology_label=_CALIBRATION_GRAPH_LABEL,
-    )
-
-    graph = generate_random_fixed_out_degree(
-        n_agents=baseline.n_agents,
-        k=baseline.k,
-        graph_seed=graph_seed,
-    )
-    attention = uniform_attention_from_graph(graph)
-    initial = generate_neutral_nonnetwork_initial_conditions(
-        n_agents=baseline.n_agents,
-        parameters=parameters,
-        initial_state_seed=initial_state_seed,
-    )
-    initial_state = initialise_state(
-        theta=initial.theta,
-        beliefs=initial.beliefs,
-        positions=initial.positions,
-        price=initial.price,
-        reputation=initial.reputation,
-        attention=attention,
-        graph=graph,
-        x_bar=parameters.x_bar,
-    )
-    shock_path = generate_shock_path(
-        n_periods=protocol.horizon,
-        n_agents=baseline.n_agents,
-        parameters=parameters,
-        shock_seed=shock_seed,
-    )
-    simulation = simulate_shock_path(
-        initial_state,
-        shock_path,
-        graph,
-        parameters,
+        baseline=baseline,
+        protocol=protocol,
         adaptive_attention=True,
     )
-    components = rolling_cid_components(
-        simulation,
-        window_length=protocol.rolling_window,
-        burn_in=protocol.burn_in,
-    )
-    if len(components) != protocol.expected_rolling_points_per_run:
-        raise RuntimeError("unexpected number of rolling calibration endpoints")
-    return components
 
 
 def run_no_social_calibration_smoke(
