@@ -341,8 +341,8 @@ def test_prepare_rejects_inconsistent_k():
         )
 
 
-def test_prepare_rejects_shock_dimension_mismatch():
-    with pytest.raises(ValueError, match="shock dimension"):
+def test_prepare_rejects_bound_plan_dimension_mismatch():
+    with pytest.raises(ValueError, match="initial-condition dimension"):
         prepare_paired_treatments(
             plan=plan(n_agents=7),
             specifications=specifications(),
