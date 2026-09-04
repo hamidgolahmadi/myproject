@@ -981,20 +981,16 @@ Pre-freeze validation:
   attention mobility declined smoothly as the floor became economically
   relevant;
 - `sigma_0=5e-4` is frozen because it is of the same order as realised local
-  reputation dispersion.  It therefore regularises an almost degenerate local
+  reputation dispersion. It therefore regularises an almost degenerate local
   reputation distribution without dominating realised dispersion or shutting
   down adaptive attention.
 
-This choice was based on pooled absolute scale diagnostics only.  It did not
+This choice was based on pooled absolute scale diagnostics only. It did not
 inspect or optimise topology rankings or confirmatory treatment effects.
 
 Canonical documentation:
 
     docs/REFINED_BASELINE.md
-
-The next allowed market step is a small end-to-end no-social D042 calibration
-smoke under this frozen specification.  The full 500+500 calibration remains
-prohibited until that smoke is verified.
 
 ---
 
@@ -1002,8 +998,8 @@ prohibited until that smoke is verified.
 
 STATUS: FROZEN FOR FIRST CONFIRMATORY FIXED-TOPOLOGY RUNS
 
-The D042 production calibration has completed under the frozen D043 market
-specification using two independent no-social samples:
+The D042 production calibration completed under D043 using two independent
+no-social samples:
 
     scale sample       = 500 runs, namespace 2026090201
     threshold sample   = 500 runs, namespace 2026090202
@@ -1016,7 +1012,7 @@ specification using two independent no-social samples:
     component guardrails = inactive
     L_stab             = 50
 
-The final numerical calibration is:
+Final numerical calibration:
 
     c_ret = 0.0030364359162156455
     c_bel = 0.004182211355781272
@@ -1036,23 +1032,12 @@ Production provenance:
     exit code     = 0
     elapsed       = 01:06:36
 
-At `alpha=0`, adaptive and fixed attention are exactly equivalent for the
-return, belief, signed-order-flow, and CID-component paths under common
-randomness. The production run therefore used `adaptive_attention=False` only
-as a computational shortcut after that exact equivalence had been
-regression-tested.
+At alpha=0, adaptive and fixed attention are exactly equivalent for the market
+and CID-component paths under common randomness. The production calibration
+used fixed attention only as a tested computational shortcut.
 
-These four numerical values are immutable inputs to the first confirmatory
-R/SW/SF market experiments. They must not be retuned, rescaled, or replaced
-after treatment outcomes are inspected.
-
-Any future recalibration requires:
-
-1. a new explicit methodological decision;
-2. new disjoint calibration seed namespaces;
-3. a separately labelled artifact and provenance record;
-4. no retroactive replacement of this first frozen calibration in already
-   reported confirmatory results.
+These four values are immutable inputs to the first confirmatory R/SW/SF market
+experiment. They must not be retuned after treatment outcomes are inspected.
 
 Canonical code:
 
@@ -1061,3 +1046,107 @@ Canonical code:
 Canonical documentation:
 
     docs/FINAL_MARKET_CALIBRATION.md
+
+---
+
+## D045 — First Confirmatory Fixed-Topology Production Protocol
+
+STATUS: FROZEN BEFORE PRODUCTION OUTCOME INSPECTION
+
+The Phase-8 paired R/SW/SF runner and its end-to-end negative-control smoke have
+passed. The first large confirmatory experiment is therefore frozen as follows:
+
+    baseline regime alpha       = 0.75
+    production experiment seed  = 2026090402
+    paired replications          = 1000
+    topology triplet             = (R, SW, SF)
+    total baseline simulations   = 3000
+    bootstrap seed               = 2026090403
+    bootstrap draws              = 10000
+    confidence level             = 0.95
+    family-wise alpha            = 0.05
+
+The smoke seed `2026090401`, production seed `2026090402`, bootstrap seed
+`2026090403`, and all D042 calibration namespaces are disjoint.
+
+The report defines the matched-triplet estimator, requires all three pairwise
+topology contrasts, and requires bootstrap resampling of complete replication
+triplets. It does not uniquely prescribe the production replication count or
+bootstrap count. Therefore `R=1000` and `B_boot=10000` are explicit
+pre-production design choices, not report equations.
+
+`R=1000` gives a worst-case Monte Carlo standard error for a binary run-level
+probability of approximately `sqrt(0.25/1000)=0.0158`, or 1.58 percentage
+points, while remaining computationally practical on Iridis.
+
+The three predeclared pairwise contrasts are:
+
+    R - SW
+    R - SF
+    SW - SF
+
+Primary confirmatory family:
+
+    return_volatility
+    rms_mispricing
+    maximum_absolute_mispricing
+    mean_absolute_order_flow_per_agent
+    peak_cid
+    threshold_exceeding
+
+Across three topology pairs this is 18 hypotheses. Apply Holm family-wise error
+control at 5% across this family.
+
+Mechanism confirmatory family:
+
+    mean_hub_influence_share
+    mean_attention_overlap
+    mean_pairwise_action_covariance
+    mean_aggregate_order_flow_variance
+
+Across three topology pairs this is 12 hypotheses. Apply a separate Holm
+family-wise correction at 5% across this mechanism family.
+
+Secondary/exploratory outcomes include mean absolute return, time-averaged
+belief variance, CID exceedance duration, right-censoring/non-stabilisation,
+influence HHI, attention entropy/effective sources/mobility, and the sum of
+individual action variances. These receive pointwise bootstrap intervals and
+are labelled exploratory.
+
+Right-censored runs are not dropped. The right-censoring/non-stabilisation rate
+is the baseline censoring-aware stabilisation summary.
+
+For continuous non-negative outcomes report topology means, absolute and
+relative topology gaps, all three named pairwise contrasts, and relative
+pairwise effects. Relative effects are not used for binary outcomes or signed
+mean pairwise action covariance. The fixed relative denominator regulariser is
+`1e-12` and is identical across topology classes.
+
+Bootstrap resampling MUST preserve pairing: selecting replication `r` carries
+its complete `(R,SW,SF)` triplet into the bootstrap draw. Independent topology
+resampling is prohibited.
+
+The first production run is baseline-only. A separate 1000-replication alpha=0
+production sample is not run because the topology-null market path is exact by
+construction, regression-tested, and was verified end-to-end in Phase-8 Slurm
+job 1509863: both smoke replications produced exactly one non-attention economic
+path across R/SW/SF. Alpha zero remains part of later alpha-sweep work.
+
+Each production checkpoint is one indivisible matched topology triplet and is
+bound to a fingerprint of the complete D045/D043/D044 specification. Final
+means/gaps/contrasts/bootstrap artifacts must not be written until every one of
+the 1000 predeclared checkpoints exists and validates.
+
+No partial production sample should be interpreted or used to retune the
+protocol, baseline parameters, CID calibration, topology construction, or
+outcome family definitions.
+
+Canonical code:
+
+    src/experiments/refined/confirmatory_protocol.py
+    src/experiments/refined/confirmatory_inference.py
+    src/experiments/refined/confirmatory_production.py
+
+Canonical documentation:
+
+    docs/D045_CONFIRMATORY_PROTOCOL.md
