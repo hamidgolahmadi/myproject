@@ -30,14 +30,12 @@ Iridis shell setup:
 
 Iridis:
 
-    619 passed in 15.76s
-
-with branch up to date and working tree clean.
+    660 passed in 15.50s
 
 This verifies the complete refined core, paired seed/treatment machinery,
-D041 structural validation, market/CID/mechanism diagnostics, D042 production
-calibration runner, D043 baseline, D044 frozen numerical calibration, and the
-Phase-8 paired confirmatory runner/smoke.
+D041 structural validation, market/CID/mechanism diagnostics, D042/D044 market
+evaluation calibration, D043 baseline, Phase-8 paired runner/smoke, and the
+complete D045 production/inference layer.
 
 ## Frozen structural design — D041
 
@@ -106,7 +104,7 @@ Fingerprints:
     configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
     scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
 
-These values are immutable for the first confirmatory topology experiment.
+These values remain fixed for D046; alpha sweeps do not recalibrate CID.
 
 ## Phase 8 paired confirmatory smoke — VERIFIED
 
@@ -130,15 +128,19 @@ Exact end-to-end alpha-zero topology-null control PASSED:
 
 The smoke is pipeline evidence only and is not used to rank topologies.
 
-## D045 first confirmatory production protocol — FROZEN, IMPLEMENTED, AWAITING VERIFICATION
+## D045 first confirmatory production — VERIFIED AND FROZEN
 
-Canonical protocol:
+Canonical protocol/code:
 
     src/experiments/refined/confirmatory_protocol.py
+    src/experiments/refined/confirmatory_inference.py
+    src/experiments/refined/confirmatory_production.py
     docs/D045_CONFIRMATORY_PROTOCOL.md
+    docs/D045_RESULTS.md
 
 Frozen production design:
 
+    baseline alpha = 0.75
     production seed = 2026090402
     paired replications = 1000
     topology triplet = (R, SW, SF)
@@ -148,78 +150,16 @@ Frozen production design:
     confidence level = 95%
     family-wise alpha = 0.05
 
-The first production run is baseline-only (`alpha=0.75`). The exact alpha-zero
-negative control is not repeated 1000 times because its market-path topology
-null has already been established exactly and verified end-to-end in Phase 8.
+Production provenance:
 
-Predeclared pairwise contrasts:
+    Slurm array = 1511972
+    10/10 tasks COMPLETED
+    every task exit code = 0:0
+    stderr = empty
+    production/finalizer commit = b5fbf52dd988637d90d7b5bc5c346c20551b66be
+    finalization job = 1512116, COMPLETED exit code 0
 
-    R - SW
-    R - SF
-    SW - SF
-
-Primary confirmatory family, Holm FWER over 18 pairwise hypotheses:
-
-    return_volatility
-    rms_mispricing
-    maximum_absolute_mispricing
-    mean_absolute_order_flow_per_agent
-    peak_cid
-    threshold_exceeding
-
-Mechanism confirmatory family, separate Holm FWER over 12 hypotheses:
-
-    mean_hub_influence_share
-    mean_attention_overlap
-    mean_pairwise_action_covariance
-    mean_aggregate_order_flow_variance
-
-Secondary outcomes receive pointwise exploratory bootstrap intervals. The
-right-censoring/non-stabilisation rate is retained and censored runs are never
-dropped.
-
-Bootstrap resamples complete matched replication triplets, never topology
-samples independently.
-
-## D045 implementation
-
-New/updated modules:
-
-    src/experiments/refined/paired.py
-    src/experiments/refined/treatments.py
-    src/experiments/refined/action_covariance.py
-    src/experiments/refined/confirmatory_runner.py
-    src/experiments/refined/confirmatory_protocol.py
-    src/experiments/refined/confirmatory_inference.py
-    src/experiments/refined/confirmatory_production.py
-
-Key guards:
-
-- paired plans now bind `n_agents`, `n_periods`, and the exact parameter-vector SHA-256 fingerprint;
-- treatment preparation rejects reuse of a shock plan with different parameters;
-- rolling action covariance is algebraically equivalent but vectorised for production efficiency;
-- every production checkpoint is one indivisible R/SW/SF triplet;
-- checkpoints are specification-fingerprinted and resumable;
-- final inference artifacts are impossible until all 1000 checkpoints exist;
-- no production task prints or ranks topology contrasts before finalization.
-
-Production CLI / Slurm:
-
-    scripts/run_refined_confirmatory_production.py
-    scripts/run_refined_confirmatory_production.slurm
-    scripts/finalize_refined_confirmatory_production.py
-    scripts/finalize_refined_confirmatory_production.slurm
-
-Array design:
-
-    10 tasks x 100 paired replications
-    1 CPU/task
-    4 GB/task
-    2 hour task walltime
-
-No partition/account was invented; Iridis default scheduling is retained.
-
-Final artifacts, only after full completion:
+Final artifacts:
 
     results/refined/confirmatory_production/confirmatory_records.csv
     results/refined/confirmatory_production/confirmatory_metadata.json
@@ -228,25 +168,100 @@ Final artifacts, only after full completion:
     results/refined/confirmatory_production/topology_gaps.csv
     results/refined/confirmatory_production/pairwise_contrasts.csv
 
-## D045 test gate
+Primary result summary:
 
-New regression tests cover:
+- return volatility: `SF > R > SW`; all three pairwise contrasts survive Holm;
+- mean absolute order flow/agent: `SF > R > SW`; all three survive Holm;
+- peak CID: SW is lower than R and SF; R-SF does not survive Holm;
+- RMS mispricing: no pair survives Holm;
+- maximum absolute mispricing: no pair survives Holm;
+- threshold-exceeding rate is 0.1%-0.2% and no pair survives Holm.
 
-- parameter-plan binding;
-- vectorised Eq. (239)-(240) equivalence;
-- frozen D045 protocol;
-- matched-triplet bootstrap and inference;
-- checkpoint/resume/finalization;
-- CLI and Slurm array/finalizer contracts.
+Mechanism result summary:
 
-41 tests were added after the verified 619 checkpoint.
+    mean hub influence share:       SF > R > SW
+    mean attention overlap:         SF > R > SW
+    mean pairwise action covariance:SF > R > SW
+    aggregate order-flow variance:  SF > R > SW
+
+All 12 predeclared mechanism contrasts survive the separate Holm correction.
+The effect attenuates strongly along the chain from realised social influence to
+final price instability. Therefore D045 supports a strong network-transmission
+mechanism but only modest realised instability differences at alpha=0.75.
+
+## D046 exploratory alpha sweep — FROZEN, IMPLEMENTED, AWAITING TEST VERIFICATION
+
+Scientific purpose:
+
+Map where topology differentiation is weak, strongest, or saturated as alpha
+changes, without changing any other D043 parameter or D044 evaluation scale.
+This is explicitly OAT/exploratory under D027, not a second confirmatory family.
+
+Canonical protocol/documentation:
+
+    src/experiments/refined/alpha_sweep_protocol.py
+    docs/D046_ALPHA_SWEEP_PROTOCOL.md
+
+Frozen design:
+
+    experiment seed = 2026090404
+    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 1.00)
+    paired replications per alpha = 300
+    topology triplet = (R, SW, SF)
+    total simulations = 7200
+    bootstrap seed = 2026090405
+    bootstrap draws = 5000
+    confidence level = 95%
+
+Within replication, the same semantic shock/initial-state/graph seeds are used
+across the full alpha grid. Alpha does not enter the exogenous shock scale or
+neutral initial-state distribution, and a dedicated regression test locks this
+cross-alpha CRN property. Parameter fingerprints still differ by alpha and are
+validated normally.
+
+One bootstrap unit is the complete replication block containing all 8 alpha
+values and all 3 topology treatments. Independent resampling by alpha or by
+topology is prohibited.
+
+D046 analysis reports, at each alpha:
+
+    topology means
+    absolute/relative topology gaps
+    R-SW, R-SF, SW-SF paired contrasts
+    95% matched-block percentile intervals
+
+No Holm/FWER rejection family is attached to D046. Final analysis requires the
+exact alpha=0 economic-path topology null in every replication.
+
+Implementation:
+
+    src/experiments/refined/alpha_sweep_analysis.py
+    src/experiments/refined/alpha_sweep_production.py
+    scripts/run_refined_alpha_sweep.py
+    scripts/run_refined_alpha_sweep.slurm
+    scripts/finalize_refined_alpha_sweep.py
+    scripts/finalize_refined_alpha_sweep.slurm
+
+Checkpoint:
+
+    results/refined/alpha_sweep/checkpoints/alpha_XX/replication_XXXX.json
+
+Finalization is impossible until all `8 x 300 = 2400` alpha/replication
+checkpoints validate.
+
+Slurm design:
+
+    48 array tasks
+    8 alpha slices x 6 blocks
+    50 paired replications per task
+    maximum 16 concurrent tasks
+    1 CPU/task, 4 GB/task, 1 hour/task
+
+28 new tests were added after the verified 660 checkpoint.
 
 Expected next checkpoint:
 
-    660 passed
-
-Do NOT submit the D045 production array until this checkpoint is verified on
-Iridis with a clean working tree.
+    688 passed
 
 ## Report revision TODO — sigma_0 Appendix
 
@@ -257,25 +272,25 @@ a regularisation-sensitivity diagnostic, not a topology-ranking table.
 ## Immediate gate
 
 1. Pull latest `refined-model` on Iridis.
-2. Run all refined tests; expected `660 passed`.
+2. Run all refined tests; expected `688 passed`.
 3. Confirm working tree clean.
-4. Only if green, create `results/refined/confirmatory_production` and submit the D045 Slurm array.
-5. Do not run finalization until all 1000 paired checkpoints exist.
-6. Do not inspect or interpret partial topology contrasts during production.
+4. Do NOT submit D046 until this gate is green.
+5. If green, create `results/refined/alpha_sweep` before `sbatch` so Slurm can open logs.
+6. Do not inspect partial alpha/topology curves before all 2400 checkpoints exist.
 
 ## Development status
 
-    Phase 1  Refined fixed-topology core                         COMPLETE
-    Phase 2  Topology generators                                COMPLETE
-    Phase 3  Deterministic integration                          COMPLETE
-    Phase 4  Paired design + structural validation              COMPLETE
-    Phase 5  Market metrics / CID / calibration method          COMPLETE
-    Phase 6  Mechanism diagnostics                              COMPLETE
-    Phase 7  Frozen baseline + market calibration               COMPLETE
-    Phase 8  Paired confirmatory market runner                  COMPLETE
-    Phase 9  D045 confirmatory production / large MC            IN PROGRESS
-    Phase 10 alpha/beta/gamma experiments + heterogeneity       PLANNED
-    Phase 11 Endogenous G formation                             PLANNED
-    Phase 12 Full Jacobian / Lyapunov                           PLANNED
-    Phase 13 State-space / EKF / empirical work                PLANNED
-    Phase 14 Planner / policy                                   PLANNED
+    Phase 1   Refined fixed-topology core                         COMPLETE
+    Phase 2   Topology generators                                COMPLETE
+    Phase 3   Deterministic integration                          COMPLETE
+    Phase 4   Paired design + structural validation              COMPLETE
+    Phase 5   Market metrics / CID / calibration method          COMPLETE
+    Phase 6   Mechanism diagnostics                              COMPLETE
+    Phase 7   Frozen baseline + market calibration               COMPLETE
+    Phase 8   Paired confirmatory market runner                  COMPLETE
+    Phase 8b  D045 confirmatory production / large MC            COMPLETE
+    Phase 9   alpha/beta/gamma experiments + heterogeneity       IN PROGRESS (D046 alpha)
+    Phase 10  Endogenous G formation                             PLANNED
+    Phase 11  Full Jacobian / Lyapunov                           PLANNED
+    Phase 12  State-space / EKF / empirical work                 PLANNED
+    Phase 13  Planner / policy                                   PLANNED
