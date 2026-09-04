@@ -1,7 +1,7 @@
 """Frozen D046 exploratory alpha-sweep protocol.
 
 D046 is an OAT diagnostic following the completed D045 fixed-topology
-confirmatory experiment.  It maps topology differentiation across the social
+confirmatory experiment. It maps topology differentiation across the social
 weight ``alpha`` while keeping every other D043 parameter and the D044 market
 calibration fixed.
 """
@@ -34,6 +34,7 @@ class AlphaSweepProtocol:
     bootstrap_seed: int = ALPHA_SWEEP_BOOTSTRAP_SEED
     n_bootstrap: int = 5_000
     confidence_level: float = 0.95
+    relative_epsilon: float = 1e-12
     topology_labels: tuple[str, ...] = ("R", "SW", "SF")
     topology_pairs: tuple[tuple[str, str], ...] = (
         ("R", "SW"),
@@ -80,9 +81,13 @@ class AlphaSweepProtocol:
         object.__setattr__(self, "alpha_grid", alpha_grid)
 
         confidence = float(self.confidence_level)
+        epsilon = float(self.relative_epsilon)
         if not np.isfinite(confidence) or not 0.0 < confidence < 1.0:
             raise ValueError("confidence_level must lie strictly between zero and one")
+        if not np.isfinite(epsilon) or epsilon <= 0.0:
+            raise ValueError("relative_epsilon must be finite and strictly positive")
         object.__setattr__(self, "confidence_level", confidence)
+        object.__setattr__(self, "relative_epsilon", epsilon)
 
         if self.topology_labels != ("R", "SW", "SF"):
             raise ValueError("D046 requires the frozen R/SW/SF topology order")
@@ -102,6 +107,13 @@ class AlphaSweepProtocol:
     @property
     def n_simulations(self) -> int:
         return self.n_matched_blocks * len(self.topology_labels)
+
+    def uses_relative_effect(self, outcome: str) -> bool:
+        """Reuse the frozen D045 relative-effect convention."""
+
+        if outcome not in self.outcomes:
+            raise KeyError(outcome)
+        return first_confirmatory_production_protocol().uses_relative_effect(outcome)
 
 
 def first_alpha_sweep_protocol() -> AlphaSweepProtocol:
