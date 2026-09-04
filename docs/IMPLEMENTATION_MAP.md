@@ -1,6 +1,6 @@
 # Refined Model Implementation Map
 
-Last updated: 2026-09-02
+Last updated: 2026-09-04
 
 Scientific source of truth: `report1_25_08_2026.pdf`. Legacy code is reference only.
 
@@ -188,7 +188,7 @@ Observed successful 3+3 smoke:
 
 These values are explicitly smoke-only and not final calibration values.
 
-Status: VERIFIED at 568-test checkpoint.
+Status: VERIFIED.
 
 ## Shared no-social path constructor
 
@@ -203,45 +203,71 @@ Responsibilities:
 - run canonical refined simulator;
 - compute rolling CID components.
 
-At alpha=0, adaptive and fixed attention must yield exactly identical return/belief/order-flow/CID-component paths under the same randomness. This exact equivalence is regression-tested. Production calibration uses fixed attention only as a computational shortcut; influence diagnostics are not computed from this shortcut.
+At alpha=0, adaptive and fixed attention yield exactly identical return/belief/order-flow/CID-component paths under common randomness. Production calibration uses fixed attention only as a computational shortcut; influence diagnostics are not computed from this shortcut.
 
-## Production D042 calibration — NEW
+## Production D042 calibration runner
 
     src/experiments/refined/market_calibration_run.py
     scripts/run_refined_market_calibration.py
+    scripts/run_refined_market_calibration.slurm
     tests/test_refined_market_calibration_run.py
 
-Production runner properties:
+Properties:
 
-- defaults exactly to D042 500+500 protocol;
+- exact 500+500 D042 protocol;
 - sequential scale then threshold stages;
-- per-scale-replication compressed NPZ checkpoints;
-- per-threshold-replication JSON peak-CID checkpoints;
-- resume after interruption;
-- deterministic SHA-256 fingerprint of the full D042 protocol + D043 baseline embedded in every checkpoint;
-- threshold checkpoint additionally bound to the realised reference-scale fingerprint;
-- exact pooled median reference scales;
-- exact `higher` empirical quantile of run-level peak CIDs;
-- `reference_scales.json` is stage-complete but not a final calibration artifact;
-- `market_evaluation_calibration.json` is created only after all threshold runs complete;
-- `threshold_peak_cids.csv` preserves all final run-level peaks;
-- production path uses `adaptive_attention=False` at alpha=0 after exact equivalence test;
-- CLI detects hostnames containing `login` and refuses the 500+500 run unless deliberately overridden.
+- per-replication checkpoint/resume;
+- full D042+D043 configuration fingerprint in every checkpoint;
+- reference-scale fingerprint in threshold checkpoints;
+- exact pooled medians and `higher` peak-CID quantile;
+- login-node safety guard;
+- Slurm wrapper for compute-node execution.
 
-New production tests: 21.
+Production run completed successfully as Slurm job 1505911 on `ruby047` with exit code 0.
 
-Expected next checkpoint:
+## Frozen final D042 numerical calibration
 
-    589 passed
+Canonical code:
+
+    src/experiments/refined/frozen_market_calibration.py
+
+Canonical API:
+
+    frozen_reference_scales()
+    first_frozen_market_evaluation_calibration()
+
+Canonical documentation:
+
+    docs/FINAL_MARKET_CALIBRATION.md
+
+Frozen values:
+
+    c_ret = 0.0030364359162156455
+    c_bel = 0.004182211355781272
+    c_F   = 0.11381404220614316
+    c_CID = 1.8326578831721285
+
+Fingerprints:
+
+    configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
+    scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
+
+These values are immutable for the first confirmatory topology experiments. They must not be retuned after treatment outcomes are inspected.
+
+Latest verified test checkpoint before the final freeze-record additions:
+
+    589 passed in 14.22s
+
+Four Slurm-wrapper tests and six frozen-calibration tests were added after that checkpoint. Expected next total:
+
+    599 passed
 
 ## Current gate
 
-1. Verify 589 tests on Iridis.
-2. Do not launch the production script directly on `loginX...`.
-3. Submit/run `scripts/run_refined_market_calibration.py` inside an Iridis compute allocation or batch job.
-4. Because the runner checkpoints every replication, an interrupted job can be resumed safely.
-5. When 500+500 completes, inspect and freeze numerical `c_ret`, `c_bel`, `c_F`, and `c_CID`.
-6. Only then build the paired confirmatory market runner and small paired smoke.
-7. Large confirmatory topology Monte Carlo remains prohibited until that paired smoke passes.
+1. Verify 599 tests on Iridis.
+2. Build the paired confirmatory market-output runner using the frozen D043 specification and `first_frozen_market_evaluation_calibration()`.
+3. Persist paired R/SW/SF run-level outcomes and mechanism diagnostics under common random numbers.
+4. Run a small paired confirmatory smoke and verify persistence, pairing, calibration use, and topology-null alpha=0 controls.
+5. Only then submit large confirmatory topology Monte Carlo.
 
 Formal stability remains separate: equilibrium X*, complete Jacobian J*, `spr(J*)`, Lyapunov analysis. Spectral radius of row-stochastic W is never the market-stability criterion.
