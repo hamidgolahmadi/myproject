@@ -191,7 +191,11 @@ def _centered_bootstrap_p_value(draws: np.ndarray, estimate: float) -> float:
     return float((exceedances + 1) / (centered.size + 1))
 
 
-def _holm_adjust(p_values: list[float]) -> tuple[list[float], list[bool]]:
+def _holm_adjust(
+    p_values: list[float],
+    *,
+    alpha: float,
+) -> tuple[list[float], list[bool]]:
     m = len(p_values)
     order = sorted(range(m), key=lambda index: p_values[index])
     adjusted = [0.0] * m
@@ -200,7 +204,7 @@ def _holm_adjust(p_values: list[float]) -> tuple[list[float], list[bool]]:
         candidate = (m - rank) * p_values[index]
         running = max(running, candidate)
         adjusted[index] = min(1.0, running)
-    return adjusted, [value <= 0.05 for value in adjusted]
+    return adjusted, [value <= alpha for value in adjusted]
 
 
 def analyse_confirmatory_records(
@@ -358,7 +362,10 @@ def analyse_confirmatory_records(
     for family in ("primary", "mechanism"):
         positions = family_positions[family]
         raw_p = [contrast_results[index].bootstrap_p_value for index in positions]
-        adjusted, rejected = _holm_adjust(raw_p)
+        adjusted, rejected = _holm_adjust(
+            raw_p,
+            alpha=protocol.familywise_alpha,
+        )
         for index, adjusted_p, reject in zip(positions, adjusted, rejected, strict=True):
             old = contrast_results[index]
             contrast_results[index] = PairwiseContrastResult(
