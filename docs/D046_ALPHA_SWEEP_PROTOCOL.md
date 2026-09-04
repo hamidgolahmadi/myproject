@@ -24,10 +24,18 @@ It does not replace the later joint-parameter identification design.
     bootstrap seed = 2026090405
     bootstrap draws = 5000
     confidence level = 0.95
+    relative denominator epsilon = 1e-12
 
 All parameters other than alpha remain at the frozen D043 values. D042/D044
 reference scales and CID threshold remain fixed and are not recalibrated across
 alpha.
+
+`R=300` is a deliberate exploratory-computation choice rather than a report
+equation. It gives a worst-case Bernoulli Monte Carlo standard error of about
+`sqrt(0.25/300)=0.0289`, while continuous matched-topology contrasts benefit
+substantially from common random numbers. A later focused regime experiment,
+if warranted, must use a new independent seed namespace and a separately frozen
+larger sample rather than relabelling D046 as confirmatory.
 
 The grid deliberately includes:
 
@@ -67,6 +75,10 @@ D046 reuses the D045 treatment record and therefore carries the same primary,
 mechanism, and secondary metrics. D046 is exploratory: it reports topology
 means, topology gaps, and all three pairwise topology contrasts at each alpha,
 with matched-block percentile bootstrap intervals.
+
+For continuous non-negative outcomes, relative gaps/effects use the same fixed
+`1e-12` denominator regulariser as D045. Relative effects are not used for the
+binary outcomes or for signed mean pairwise action covariance.
 
 No Holm/FWER rejection family is declared for D046. The purpose is curve and
 regime mapping, not a second confirmatory multiple-testing exercise.
