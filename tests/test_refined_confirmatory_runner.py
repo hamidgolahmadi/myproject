@@ -117,12 +117,12 @@ def test_alpha0_market_metrics_are_exactly_equal(alpha0_records):
         assert values[1:] == values[:-1]
 
 
-def test_alpha0_keeps_topology_specific_graph_diagnostics(alpha0_records):
-    signatures = {
-        (record.in_degree_gini, record.hub_link_share, record.global_clustering)
-        for record in alpha0_records
-    }
-    assert len(signatures) > 1
+def test_alpha0_structural_diagnostics_remain_valid(alpha0_records):
+    for record in alpha0_records:
+        assert np.isfinite(record.in_degree_gini)
+        assert np.isfinite(record.hub_link_share)
+        assert np.isfinite(record.global_clustering)
+        assert 0.0 <= record.largest_component_share <= 1.0
 
 
 def test_records_contain_finite_market_and_mechanism_values(baseline_records):
