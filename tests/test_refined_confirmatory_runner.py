@@ -90,7 +90,7 @@ def test_graph_seeds_are_topology_specific(baseline_records):
 
 
 def test_baseline_alpha_is_preserved(baseline_records):
-    assert {record.alpha for record in baseline_records} == {pytest.approx(0.75)}
+    assert all(record.alpha == pytest.approx(0.75) for record in baseline_records)
 
 
 def test_alpha0_override_is_applied_to_all_treatments(alpha0_records):
@@ -117,9 +117,12 @@ def test_alpha0_market_metrics_are_exactly_equal(alpha0_records):
         assert values[1:] == values[:-1]
 
 
-def test_alpha0_can_still_have_topology_specific_influence(alpha0_records):
-    assert len({record.mean_influence_hhi for record in alpha0_records}) >= 1
-    assert len({record.graph_seed for record in alpha0_records}) == 3
+def test_alpha0_keeps_topology_specific_graph_diagnostics(alpha0_records):
+    signatures = {
+        (record.in_degree_gini, record.hub_link_share, record.global_clustering)
+        for record in alpha0_records
+    }
+    assert len(signatures) > 1
 
 
 def test_records_contain_finite_market_and_mechanism_values(baseline_records):
