@@ -4,6 +4,12 @@ This module evaluates an already-completed :class:`SimulationResult`.  It does
 not rerun or alter the market transition.  For each valid rolling endpoint it
 computes sample action covariances over the exact full post-burn-in window and
 verifies the finite-sample variance decomposition for signed net order flow.
+
+The implementation uses rolling sums and squared sums rather than constructing
+a full N x N covariance matrix at every endpoint.  Equation (240) then recovers
+the average pairwise covariance exactly from aggregate-flow variance and the
+sum of individual action variances.  This is algebraically identical and is
+substantially cheaper for the N=100, T=1000 confirmatory Monte Carlo.
 """
 
 from __future__ import annotations
@@ -107,6 +113,30 @@ class RollingActionCovariancePoint:
         return float(self.aggregate_order_flow_variance - self.reconstructed_order_flow_variance)
 
 
+def _rolling_sample_variance_sums(
+    values: np.ndarray,
+    *,
+    window_length: int,
+) -> np.ndarray:
+    """Return sample variances for every full rolling window along axis zero."""
+
+    values = np.asarray(values, dtype=float)
+    prefix = np.concatenate(
+        [np.zeros((1,) + values.shape[1:], dtype=float), np.cumsum(values, axis=0)],
+        axis=0,
+    )
+    prefix_sq = np.concatenate(
+        [np.zeros((1,) + values.shape[1:], dtype=float), np.cumsum(np.square(values), axis=0)],
+        axis=0,
+    )
+    sums = prefix[window_length:] - prefix[:-window_length]
+    sums_sq = prefix_sq[window_length:] - prefix_sq[:-window_length]
+    centered_ss = sums_sq - np.square(sums) / window_length
+    # Tiny negative values can occur only from floating subtraction.
+    centered_ss = np.maximum(centered_ss, 0.0)
+    return centered_ss / (window_length - 1)
+
+
 def rolling_action_covariance(
     result: SimulationResult,
     *,
@@ -134,43 +164,44 @@ def rolling_action_covariance(
     if not np.allclose(actions.sum(axis=1), flows, rtol=0.0, atol=_DECOMP_ATOL):
         raise ValueError("stored net order flow is inconsistent with the sum of agent actions")
 
+    post_actions = actions[burn_in:]
+    post_flows = flows[burn_in:, np.newaxis]
+    individual_variances = _rolling_sample_variance_sums(
+        post_actions,
+        window_length=window_length,
+    )
+    flow_variances = _rolling_sample_variance_sums(
+        post_flows,
+        window_length=window_length,
+    )[:, 0]
+
+    sum_individual = individual_variances.sum(axis=1)
+    average_pairwise = (
+        flow_variances - sum_individual
+    ) / (n_agents * (n_agents - 1))
+    reconstructed = sum_individual + n_agents * (n_agents - 1) * average_pairwise
+
+    if not np.allclose(
+        flow_variances,
+        reconstructed,
+        rtol=1e-10,
+        atol=_DECOMP_ATOL,
+    ):
+        raise RuntimeError("Equation (240) sample variance decomposition failed")
+
     points: list[RollingActionCovariancePoint] = []
-    first_endpoint_index = burn_in + window_length - 1
-    for endpoint_index in range(first_endpoint_index, result.n_periods):
-        start_index = endpoint_index - window_length + 1
-        window_actions = actions[start_index : endpoint_index + 1]
-        window_flows = flows[start_index : endpoint_index + 1]
-
-        covariance_matrix = np.cov(window_actions, rowvar=False, ddof=1)
-        if covariance_matrix.shape != (n_agents, n_agents):
-            raise RuntimeError("unexpected covariance-matrix shape")
-
-        upper_sum = float(np.sum(np.triu(covariance_matrix, k=1)))
-        average_pairwise = 2.0 * upper_sum / (n_agents * (n_agents - 1))
-        sum_individual_variances = float(np.trace(covariance_matrix))
-        aggregate_variance = float(np.var(window_flows, ddof=1))
-        reconstructed = float(
-            sum_individual_variances
-            + n_agents * (n_agents - 1) * average_pairwise
-        )
-
-        if not np.isclose(
-            aggregate_variance,
-            reconstructed,
-            rtol=1e-10,
-            atol=_DECOMP_ATOL,
-        ):
-            raise RuntimeError("Equation (240) sample variance decomposition failed")
-
+    for offset in range(flow_variances.size):
+        window_start_period = burn_in + offset + 1
+        endpoint_period = window_start_period + window_length - 1
         points.append(
             RollingActionCovariancePoint(
-                endpoint_period=endpoint_index + 1,
-                window_start_period=start_index + 1,
+                endpoint_period=endpoint_period,
+                window_start_period=window_start_period,
                 window_length=window_length,
-                average_pairwise_action_covariance=average_pairwise,
-                sum_individual_action_variances=sum_individual_variances,
-                aggregate_order_flow_variance=aggregate_variance,
-                reconstructed_order_flow_variance=reconstructed,
+                average_pairwise_action_covariance=float(average_pairwise[offset]),
+                sum_individual_action_variances=float(sum_individual[offset]),
+                aggregate_order_flow_variance=float(flow_variances[offset]),
+                reconstructed_order_flow_variance=float(reconstructed[offset]),
             )
         )
 
