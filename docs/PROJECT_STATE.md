@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-02
+Last updated: 2026-09-04
 
 ## Project identity
 
@@ -51,15 +51,17 @@ Evaluation/mechanism layers VERIFIED:
 
 Eq. (266)-(267) KL-to-transition-prior remains deferred with attention inertia.
 
-## Latest verified checkpoint
+## Latest verified test checkpoint
 
 Iridis:
 
-    568 passed in 14.28s
+    589 passed in 14.22s
 
 with branch up to date and working tree clean.
 
-The corrected direct-script entry point is verified by a subprocess regression test.
+This verifies the production D042 calibration runner, exact alpha=0 adaptive-vs-fixed attention equivalence for CID components, checkpoint/resume logic, specification fingerprints, and all earlier refined-model layers.
+
+The subsequent Slurm-wrapper tests and newly added frozen-calibration tests are committed but await the next Iridis checkpoint.
 
 ## D042 market-evaluation calibration method — FROZEN
 
@@ -75,8 +77,6 @@ The corrected direct-script entry point is verified by a subprocess regression t
     c_CID = 95th percentile of run-level peak CID, quantile method higher
     component guardrails = inactive baseline
     L_stab = 50
-
-Final numerical `c_ret`, `c_bel`, `c_F`, and `c_CID` do not yet exist.
 
 ## D043 first refined baseline — FROZEN AND VERIFIED
 
@@ -166,71 +166,82 @@ Observed smoke-only values:
     c_F   = 0.1172234222
     c_CID = 1.713734032
 
-Threshold peak CIDs:
-
-    1.672320382
-    1.713734032
-    1.386226693
-
 Artifact:
 
     results/refined/no_social_calibration_smoke/calibration_smoke.json
 
 It correctly records `final_calibration=false`. These 3+3 values are pipeline evidence only and MUST NOT be frozen or reused as D042 final calibration values.
 
-## Production D042 calibration runner — IMPLEMENTED, AWAITING IRIDIS VERIFICATION
+## Production D042 calibration — COMPLETE
 
-New shared path module:
+Production modules:
 
     src/experiments/refined/no_social_calibration_paths.py
-
-Production runner:
-
     src/experiments/refined/market_calibration_run.py
-
-CLI:
-
     scripts/run_refined_market_calibration.py
+    scripts/run_refined_market_calibration.slurm
 
-Tests:
+Production run:
 
-    tests/test_refined_market_calibration_run.py
+    scale replications      = 500 / 500
+    threshold replications  = 500 / 500
+    Slurm job               = 1505911
+    compute host            = ruby047
+    state                   = COMPLETED
+    exit code               = 0
+    elapsed                 = 01:06:36
+    CPU efficiency          = 99.32%
+    peak reported memory    = 218.15 MB
 
-Production design:
+The production artifact is:
 
-- exact D042 500 scale + 500 threshold counts by default;
-- exact D042 seed namespaces 2026090201 / 2026090202;
-- one canonical valid graph per no-social replication, not R/SW/SF triplets;
-- scale replications checkpoint to compressed NPZ files;
-- threshold replications checkpoint to JSON peak-CID files;
-- every checkpoint is bound to a SHA-256 fingerprint of the full D042 protocol + D043 baseline;
-- threshold checkpoints are also bound to the realised reference-scale fingerprint;
-- stages are resumable after interruption;
-- scale artifact is marked stage-complete but `final_calibration=false`;
-- final artifact is written only after all threshold replications complete;
-- CLI refuses production execution on a hostname containing `login` unless deliberately overridden.
+    results/refined/market_calibration/market_evaluation_calibration.json
 
-Computational shortcut:
+It records `final_calibration=true`.
 
-At alpha=0, attention does not enter beliefs. Therefore adaptive and fixed attention must generate exactly identical return/belief/order-flow/CID-component paths under common graph/shock/initial-state randomness. The production runner uses `adaptive_attention=False` only after this exact equivalence is regression-tested. This shortcut applies to D042 calibration outcomes only, not to influence/attention diagnostics.
+Final frozen numerical calibration:
 
-New production test file contributes 21 cases.
+    c_ret = 0.0030364359162156455
+    c_bel = 0.004182211355781272
+    c_F   = 0.11381404220614316
+    c_CID = 1.8326578831721285
 
-Expected next checkpoint:
+Reproducibility fingerprints:
 
-    589 passed
+    configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
+    scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
+
+Canonical frozen code API:
+
+    src/experiments/refined/frozen_market_calibration.py
+    first_frozen_market_evaluation_calibration()
+    frozen_reference_scales()
+
+Canonical documentation:
+
+    docs/FINAL_MARKET_CALIBRATION.md
+
+These numerical values are now fixed inputs to the first confirmatory topology experiments and must not be retuned after inspecting R/SW/SF outcomes.
+
+## Calibration computational shortcut
+
+At alpha=0, attention does not enter beliefs. Exact regression tests establish that adaptive and fixed attention generate identical return, belief, order-flow, and CID-component paths under common graph/shock/initial-state randomness.
+
+The production D042 calibration therefore used `adaptive_attention=False` to avoid unnecessary attention updates. This shortcut applies only to D042 market/CID calibration outcomes, not to influence or attention diagnostics.
 
 ## Immediate gate
 
 1. Pull latest `refined-model` on Iridis.
-2. Run all refined tests; expected `589 passed`.
-3. Do NOT run `scripts/run_refined_market_calibration.py` directly on `loginX...`.
-4. If tests pass, prepare/submit the production calibration inside an Iridis compute allocation/batch job.
-5. The runner is resumable; interrupted completed replications are reused only when their specification fingerprints match exactly.
-6. After the full 500+500 artifact is produced, inspect and freeze final `c_ret`, `c_bel`, `c_F`, and `c_CID` before any confirmatory topology market experiment.
-7. Then build the paired confirmatory market-output runner and small paired smoke.
+2. Run all refined tests. With four Slurm-wrapper tests plus six frozen-calibration tests added after the verified 589 checkpoint, expected total is:
 
-Large confirmatory topology-evaluation Monte Carlo remains prohibited until the final calibration artifact is frozen and the paired confirmatory smoke passes.
+       599 passed
+
+3. If green, treat D042 numerical calibration as implementation-verified and immutable.
+4. Build the paired confirmatory market-output runner using the frozen D043 market specification and `first_frozen_market_evaluation_calibration()`.
+5. Run a small paired R/SW/SF confirmatory smoke with common random numbers and persistence checks.
+6. Only after that small paired smoke passes may large confirmatory topology market Monte Carlo be submitted.
+
+Large confirmatory topology-evaluation Monte Carlo remains prohibited until the paired confirmatory smoke passes.
 
 ## Development status
 
@@ -240,8 +251,8 @@ Large confirmatory topology-evaluation Monte Carlo remains prohibited until the 
     Phase 4  Paired design + structural validation              COMPLETE
     Phase 5  Market metrics / CID / calibration method          COMPLETE
     Phase 6  Mechanism diagnostics                              COMPLETE
-    Phase 7  Frozen baseline + market calibration               IN PROGRESS
-    Phase 8  Paired confirmatory market runner                  PLANNED
+    Phase 7  Frozen baseline + market calibration               COMPLETE (pending 599-test verification of final freeze record)
+    Phase 8  Paired confirmatory market runner                  NEXT
     Phase 9  alpha/beta/gamma experiments + heterogeneity       PLANNED
     Phase 10 Endogenous G formation                             PLANNED
     Phase 11 Full Jacobian / Lyapunov                           PLANNED
