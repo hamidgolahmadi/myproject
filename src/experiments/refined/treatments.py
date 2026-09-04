@@ -126,13 +126,7 @@ class TopologySpecification:
 
 @dataclass(frozen=True, slots=True)
 class NonNetworkInitialConditions:
-    """Common initial state components excluding topology-dependent ``W_0``.
-
-    This is the report's ``X_{0,-W}`` object.  Values are explicit rather than
-    sampled here because the report fixes the pairing rule but does not uniquely
-    specify numerical initialisation rules for every component, especially
-    ``b_0`` and ``p_0``.
-    """
+    """Common initial state components excluding topology-dependent ``W_0``."""
 
     theta: float
     beliefs: np.ndarray
@@ -199,7 +193,6 @@ class PreparedTopologyTreatment:
         return self.specification.topology_label
 
 
-
 def _generate_graph(
     specification: TopologySpecification,
     *,
@@ -243,8 +236,10 @@ def prepare_paired_treatments(
     graph seed and graph generator differ.  ``W_0`` is then generated from the
     realised graph using the common neutral rule in Equations (225)-(226).
 
-    ``initial_state_seed`` remains reserved in ``plan.seeds`` for the later
-    explicit initial-condition generator; it is deliberately not consumed here.
+    Before constructing any graph, the parameter vector, agent dimension, and
+    horizon are checked against the values bound into the paired plan when its
+    common shock path was generated.  A plan therefore cannot be silently
+    reused under a different model specification.
     """
 
     if not isinstance(plan, PairedReplicationPlan):
@@ -253,6 +248,12 @@ def prepare_paired_treatments(
         raise TypeError("initial_conditions must be NonNetworkInitialConditions")
     if not isinstance(parameters, RefinedParameters):
         raise TypeError("parameters must be a RefinedParameters")
+
+    plan.validate_parameters(parameters)
+    if initial_conditions.n_agents != plan.n_agents:
+        raise ValueError("common initial-condition dimension does not match paired plan n_agents")
+    if len(plan.shock_path) != plan.n_periods:
+        raise ValueError("paired plan shock path does not match its bound horizon")
 
     try:
         specification_tuple = tuple(specifications)
