@@ -30,14 +30,14 @@ Iridis shell setup:
 
 Iridis:
 
-    599 passed in 11.64s
+    619 passed in 15.76s
 
 with branch up to date and working tree clean.
 
 This verifies the complete refined core, paired seed/treatment machinery,
 D041 structural validation, market/CID/mechanism diagnostics, D042 production
-calibration runner, Slurm wrapper, D043 frozen baseline, and D044 frozen
-numerical market calibration.
+calibration runner, Slurm wrapper, D043 frozen baseline, D044 frozen numerical
+market calibration, and the Phase-8 paired confirmatory runner.
 
 ## Frozen structural design — D041
 
@@ -137,15 +137,16 @@ distance, return SD, RMS mispricing, RMS flow per agent, desired-action p95,
 projection fraction, and inventory-boundary fraction. The table is a
 regularisation-sensitivity diagnostic, not a topology-ranking table.
 
-## Phase 8 — paired confirmatory runner — IMPLEMENTED, AWAITING VERIFICATION
+## Phase 8 — paired confirmatory runner — VERIFIED
 
-New core module:
+Core module:
 
     src/experiments/refined/confirmatory_runner.py
 
-Driver:
+Driver and batch wrapper:
 
     scripts/run_refined_confirmatory_smoke.py
+    scripts/run_refined_confirmatory_smoke.slurm
 
 Tests:
 
@@ -169,62 +170,63 @@ For each replication it:
 
 The runner does not estimate treatment effects or rank topologies.
 
-## Confirmatory smoke design
+## Paired confirmatory smoke — VERIFIED
 
 Smoke-only namespace:
 
     experiment_seed = 2026090401
 
-Default smoke:
+Design:
 
     2 paired replications
     3 topology treatments: R, SW, SF
     2 regimes: baseline alpha=0.75 and alpha0 negative control
     total simulations = 12
 
-The baseline and alpha0 regimes reuse the same semantic seed namespace and
-replication IDs. Since shock and neutral-initial-state laws do not depend on
-alpha, this preserves common randomness across the control contrast as well.
+Iridis production verification:
 
-Critical end-to-end negative control:
+    Slurm job       = 1509863
+    compute host    = ruby047
+    state           = COMPLETED
+    exit code       = 0
+    elapsed         = 00:01:50
+    CPU utilised    = 00:01:49
+    CPU efficiency  = 99.09%
+    memory utilised = 364.41 MB
 
-    alpha = 0
+Critical end-to-end negative control PASSED:
 
-must produce exactly one unique economic-path fingerprint across R/SW/SF within
-each replication, even though graph and influence diagnostics remain
- topology-specific. This validates that network propagation is truly absent
-from market outcomes while the structural treatment objects remain distinct.
+    alpha0 replication 0: 1 unique economic-path fingerprint across R/SW/SF
+    alpha0 replication 1: 1 unique economic-path fingerprint across R/SW/SF
+
+Thus at alpha=0 the structural treatment objects remain different while the
+complete non-attention economic paths are exactly topology-null under common
+randomness, as required by D022/D025.
 
 Smoke persistence:
 
     results/refined/confirmatory_smoke/confirmatory_smoke_records.csv
     results/refined/confirmatory_smoke/confirmatory_smoke_metadata.json
 
-Metadata is explicitly:
+The smoke remains pipeline evidence only:
 
     final_confirmatory = false
     interpretation_guard = do not rank topologies from this smoke
 
-No qualitative topology ordering is asserted in unit tests. D041 already
-validated treatment architecture at the ensemble level.
-
-The new confirmatory test file contributes 20 cases.
-
-Expected next checkpoint:
-
-    619 passed
+No qualitative topology ordering is inferred from these 2 replications.
 
 ## Immediate gate
 
-1. Pull latest `refined-model` on Iridis.
-2. Run all refined tests; expected `619 passed`.
-3. If green, run the paired confirmatory smoke.
-4. Verify for every alpha0 replication that R/SW/SF produce exactly one unique economic-path fingerprint.
-5. Verify CSV/JSON persistence and `final_confirmatory=false`.
-6. Do not interpret or rank baseline topology outcomes from the smoke.
-7. Only after the smoke passes should we design the resumable large confirmatory Monte Carlo output layer and freeze its experiment seed/sample size.
-
-Large confirmatory topology Monte Carlo remains prohibited until this smoke passes.
+1. Treat the Phase-8 paired runner and confirmatory smoke as implementation-verified.
+2. Do NOT launch the large confirmatory Monte Carlo yet.
+3. Next define and freeze a D045 production confirmatory protocol before outcomes are inspected:
+   - production experiment seed namespace;
+   - number of paired replications;
+   - baseline regime(s) included in the first confirmatory run;
+   - checkpoint/resume and artifact layout;
+   - pre-specified treatment contrasts and summary statistics.
+4. Build the resumable production runner against that frozen protocol.
+5. Add deterministic tests and a small production-layer smoke before the large Iridis submission.
 
 ## Development status
 
@@ -235,9 +237,10 @@ Large confirmatory topology Monte Carlo remains prohibited until this smoke pass
     Phase 5  Market metrics / CID / calibration method          COMPLETE
     Phase 6  Mechanism diagnostics                              COMPLETE
     Phase 7  Frozen baseline + market calibration               COMPLETE
-    Phase 8  Paired confirmatory market runner                  IN PROGRESS
-    Phase 9  alpha/beta/gamma experiments + heterogeneity       PLANNED
-    Phase 10 Endogenous G formation                             PLANNED
-    Phase 11 Full Jacobian / Lyapunov                           PLANNED
-    Phase 12 State-space / EKF / empirical work                PLANNED
-    Phase 13 Planner / policy                                   PLANNED
+    Phase 8  Paired confirmatory market runner                  COMPLETE
+    Phase 9  Confirmatory production protocol / large MC        NEXT
+    Phase 10 alpha/beta/gamma experiments + heterogeneity       PLANNED
+    Phase 11 Endogenous G formation                             PLANNED
+    Phase 12 Full Jacobian / Lyapunov                           PLANNED
+    Phase 13 State-space / EKF / empirical work                PLANNED
+    Phase 14 Planner / policy                                   PLANNED
