@@ -1,6 +1,6 @@
 # Project Decisions
 
-Last updated: 2026-09-02
+Last updated: 2026-09-04
 
 This file records methodological and implementation decisions that should
 remain stable across coding sessions and ChatGPT conversations.
@@ -995,3 +995,69 @@ Canonical documentation:
 The next allowed market step is a small end-to-end no-social D042 calibration
 smoke under this frozen specification.  The full 500+500 calibration remains
 prohibited until that smoke is verified.
+
+---
+
+## D044 — Final Numerical D042 Market-Evaluation Calibration
+
+STATUS: FROZEN FOR FIRST CONFIRMATORY FIXED-TOPOLOGY RUNS
+
+The D042 production calibration has completed under the frozen D043 market
+specification using two independent no-social samples:
+
+    scale sample       = 500 runs, namespace 2026090201
+    threshold sample   = 500 runs, namespace 2026090202
+    calibration alpha  = 0
+    T                  = 1000
+    B                  = 0
+    L                  = 50
+    CID weights        = (1/3, 1/3, 1/3)
+    peak quantile      = 0.95, method = higher
+    component guardrails = inactive
+    L_stab             = 50
+
+The final numerical calibration is:
+
+    c_ret = 0.0030364359162156455
+    c_bel = 0.004182211355781272
+    c_F   = 0.11381404220614316
+    c_CID = 1.8326578831721285
+
+Reproducibility fingerprints:
+
+    configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
+    scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
+
+Production provenance:
+
+    Slurm job     = 1505911
+    compute host  = ruby047
+    state         = COMPLETED
+    exit code     = 0
+    elapsed       = 01:06:36
+
+At `alpha=0`, adaptive and fixed attention are exactly equivalent for the
+return, belief, signed-order-flow, and CID-component paths under common
+randomness. The production run therefore used `adaptive_attention=False` only
+as a computational shortcut after that exact equivalence had been
+regression-tested.
+
+These four numerical values are immutable inputs to the first confirmatory
+R/SW/SF market experiments. They must not be retuned, rescaled, or replaced
+after treatment outcomes are inspected.
+
+Any future recalibration requires:
+
+1. a new explicit methodological decision;
+2. new disjoint calibration seed namespaces;
+3. a separately labelled artifact and provenance record;
+4. no retroactive replacement of this first frozen calibration in already
+   reported confirmatory results.
+
+Canonical code:
+
+    src/experiments/refined/frozen_market_calibration.py
+
+Canonical documentation:
+
+    docs/FINAL_MARKET_CALIBRATION.md
