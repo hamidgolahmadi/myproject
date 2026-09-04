@@ -3,8 +3,8 @@
 This module executes the frozen first-stage R/SW/SF design under common random
 numbers. It consumes D043 for the market specification and the frozen D042
 numerical calibration for CID evaluation. It produces treatment-level market,
-CID, structural, and realised-influence diagnostics without estimating or
-ranking topology effects.
+CID, structural, realised-influence, and action-amplification diagnostics
+without estimating or ranking topology effects.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import numpy as np
 from src.model.refined import SimulationResult, simulate_shock_path
 from src.topologies.refined import diagnose_graph
 
+from .action_covariance import rolling_action_covariance
 from .baseline_specification import (
     RefinedBaselineSpecification,
     first_refined_baseline_specification,
@@ -59,6 +60,9 @@ class ConfirmatoryTreatmentRecord:
     stabilised: bool
     stabilisation_period: int | None
     right_censored: bool
+    mean_pairwise_action_covariance: float
+    mean_sum_individual_action_variances: float
+    mean_aggregate_order_flow_variance: float
     in_degree_gini: float
     hub_link_share: float
     global_clustering: float
@@ -181,6 +185,11 @@ def run_paired_confirmatory_replication(
             thresholds=thresholds,
             stabilisation_length=calibration.protocol.stabilisation_length,
         )
+        action_covariance = rolling_action_covariance(
+            simulation,
+            window_length=calibration.protocol.rolling_window,
+            burn_in=calibration.protocol.burn_in,
+        )
         structural = diagnose_graph(treatment.graph, q=baseline.hub_q)
         influence = realised_influence_path(
             simulation,
@@ -212,6 +221,15 @@ def run_paired_confirmatory_replication(
                 stabilised=classification.stabilisation.stabilised,
                 stabilisation_period=classification.stabilisation.stabilisation_period,
                 right_censored=classification.stabilisation.right_censored,
+                mean_pairwise_action_covariance=float(
+                    np.mean([p.average_pairwise_action_covariance for p in action_covariance])
+                ),
+                mean_sum_individual_action_variances=float(
+                    np.mean([p.sum_individual_action_variances for p in action_covariance])
+                ),
+                mean_aggregate_order_flow_variance=float(
+                    np.mean([p.aggregate_order_flow_variance for p in action_covariance])
+                ),
                 in_degree_gini=structural.in_degree_gini,
                 hub_link_share=structural.hub_link_share,
                 global_clustering=structural.global_clustering,
