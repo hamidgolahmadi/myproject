@@ -1,6 +1,26 @@
 """Refined confirmatory experiment-design utilities."""
 
 from .action_covariance import RollingActionCovariancePoint, rolling_action_covariance
+from .alpha_sweep_analysis import (
+    AlphaPairwiseContrastResult,
+    AlphaSweepAnalysisResult,
+    AlphaTopologyGapResult,
+    AlphaTopologyMeanResult,
+    analyse_alpha_sweep_records,
+)
+from .alpha_sweep_production import (
+    alpha_sweep_configuration_fingerprint,
+    finalize_alpha_sweep_production,
+    load_all_alpha_sweep_records,
+    run_alpha_sweep_range,
+)
+from .alpha_sweep_protocol import (
+    ALPHA_SWEEP_BOOTSTRAP_SEED,
+    ALPHA_SWEEP_EXPERIMENT_SEED,
+    FROZEN_ALPHA_GRID,
+    AlphaSweepProtocol,
+    first_alpha_sweep_protocol,
+)
 from .baseline_specification import (
     RefinedBaselineCandidate,
     RefinedBaselineSpecification,
@@ -148,6 +168,13 @@ from .treatments import (
 )
 
 __all__ = [
+    "ALPHA_SWEEP_BOOTSTRAP_SEED",
+    "ALPHA_SWEEP_EXPERIMENT_SEED",
+    "AlphaPairwiseContrastResult",
+    "AlphaSweepAnalysisResult",
+    "AlphaSweepProtocol",
+    "AlphaTopologyGapResult",
+    "AlphaTopologyMeanResult",
     "CIDReferenceScales",
     "CIDRunClassification",
     "CIDThresholdConfiguration",
@@ -160,6 +187,7 @@ __all__ = [
     "ConfirmatorySmokeResult",
     "ConfirmatoryTreatmentRecord",
     "DistributionSummary",
+    "FROZEN_ALPHA_GRID",
     "FROZEN_C_BEL",
     "FROZEN_C_CID",
     "FROZEN_C_F",
@@ -199,6 +227,8 @@ __all__ = [
     "TopologyMeanResult",
     "TopologySpecification",
     "TopologyStructuralSummary",
+    "alpha_sweep_configuration_fingerprint",
+    "analyse_alpha_sweep_records",
     "analyse_confirmatory_records",
     "attention_entropy",
     "attention_mobility",
@@ -214,7 +244,9 @@ __all__ = [
     "effective_number_of_sources",
     "estimate_cid_threshold",
     "estimate_reference_scales",
+    "finalize_alpha_sweep_production",
     "finalize_confirmatory_production",
+    "first_alpha_sweep_protocol",
     "first_confirmatory_production_protocol",
     "first_frozen_market_evaluation_calibration",
     "first_market_evaluation_calibration_protocol",
@@ -223,6 +255,7 @@ __all__ = [
     "first_structural_validation_calibration",
     "frozen_reference_scales",
     "generate_neutral_nonnetwork_initial_conditions",
+    "load_all_alpha_sweep_records",
     "load_all_confirmatory_records",
     "load_reference_scales",
     "maximum_absolute_mispricing",
@@ -244,6 +277,7 @@ __all__ = [
     "rolling_action_covariance",
     "rolling_cid",
     "rolling_cid_components",
+    "run_alpha_sweep_range",
     "run_confirmatory_production_range",
     "run_final_market_calibration",
     "run_first_refined_baseline_scale_smoke",
