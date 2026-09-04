@@ -32,6 +32,13 @@ from .cid_events import (
     operational_stabilisation,
     threshold_exceedance_rate,
 )
+from .confirmatory_runner import (
+    ConfirmatorySmokeResult,
+    ConfirmatoryTreatmentRecord,
+    run_paired_confirmatory_replication,
+    run_paired_confirmatory_smoke,
+    write_paired_confirmatory_smoke,
+)
 from .frozen_market_calibration import (
     FROZEN_C_BEL,
     FROZEN_C_CID,
@@ -120,6 +127,8 @@ __all__ = [
     "CIDRunClassification",
     "CIDThresholdConfiguration",
     "CIDWeights",
+    "ConfirmatorySmokeResult",
+    "ConfirmatoryTreatmentRecord",
     "DistributionSummary",
     "FROZEN_C_BEL",
     "FROZEN_C_CID",
@@ -199,6 +208,8 @@ __all__ = [
     "run_final_market_calibration",
     "run_first_refined_baseline_scale_smoke",
     "run_no_social_calibration_smoke",
+    "run_paired_confirmatory_replication",
+    "run_paired_confirmatory_smoke",
     "run_scale_calibration_stage",
     "run_sigma0_sensitivity_smoke",
     "run_structural_ensemble",
@@ -209,5 +220,6 @@ __all__ = [
     "threshold_exceedance_rate",
     "time_averaged_belief_variance",
     "write_no_social_calibration_smoke",
+    "write_paired_confirmatory_smoke",
     "write_structural_result",
 ]
