@@ -1,8 +1,8 @@
 """Paired confirmatory fixed-topology market runner.
 
 This module executes the frozen first-stage R/SW/SF design under common random
-numbers.  It consumes D043 for the market specification and the frozen D042
-numerical calibration for CID evaluation.  It produces treatment-level market,
+numbers. It consumes D043 for the market specification and the frozen D042
+numerical calibration for CID evaluation. It produces treatment-level market,
 CID, structural, and realised-influence diagnostics without estimating or
 ranking topology effects.
 """
@@ -10,10 +10,10 @@ ranking topology effects.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+import csv
 import hashlib
 import json
 from pathlib import Path
-import csv
 
 import numpy as np
 
@@ -114,7 +114,7 @@ def run_paired_confirmatory_replication(
     baseline: RefinedBaselineSpecification | None = None,
     calibration: MarketEvaluationCalibration | None = None,
 ) -> tuple[ConfirmatoryTreatmentRecord, ...]:
-    """Run one matched R/SW/SF replication and return topology-blind records."""
+    """Run one matched R/SW/SF replication and return treatment records."""
 
     experiment_seed = nonnegative_integer("experiment_seed", experiment_seed)
     replication_id = nonnegative_integer("replication_id", replication_id)
@@ -217,12 +217,24 @@ def run_paired_confirmatory_replication(
                 global_clustering=structural.global_clustering,
                 average_path_length_lcc=structural.average_path_length_lcc,
                 largest_component_share=structural.largest_component_share,
-                mean_attention_entropy=float(np.mean([p.mean_normalised_entropy for p in influence_points])),
-                mean_effective_sources=float(np.mean([p.mean_effective_sources for p in influence_points])),
-                mean_influence_hhi=float(np.mean([p.influence_hhi for p in influence_points])),
-                mean_hub_influence_share=float(np.mean([p.structural_hub_influence_share for p in influence_points])),
-                mean_attention_overlap=float(np.mean([p.attention_overlap for p in influence_points])),
-                mean_attention_mobility=float(np.mean([p.attention_mobility for p in influence_points])),
+                mean_attention_entropy=float(
+                    np.mean([point.mean_normalised_entropy for point in influence_points])
+                ),
+                mean_effective_sources=float(
+                    np.mean([point.mean_effective_sources for point in influence_points])
+                ),
+                mean_influence_hhi=float(
+                    np.mean([point.influence_hhi for point in influence_points])
+                ),
+                mean_hub_influence_share=float(
+                    np.mean([point.structural_hub_influence_share for point in influence_points])
+                ),
+                mean_attention_overlap=float(
+                    np.mean([point.attention_overlap for point in influence_points])
+                ),
+                mean_attention_mobility=float(
+                    np.mean([point.attention_mobility for point in influence_points])
+                ),
             )
         )
 
@@ -233,7 +245,15 @@ def run_paired_confirmatory_replication(
 class ConfirmatorySmokeResult:
     experiment_seed: int
     n_replications: int
+    baseline: RefinedBaselineSpecification
+    calibration: MarketEvaluationCalibration
     records: tuple[ConfirmatoryTreatmentRecord, ...]
+
+    def __post_init__(self) -> None:
+        _validate_inputs(self.baseline, self.calibration)
+        expected = self.n_replications * 2 * 3
+        if len(self.records) != expected:
+            raise ValueError("unexpected number of smoke treatment records")
 
 
 def run_paired_confirmatory_smoke(
@@ -280,6 +300,8 @@ def run_paired_confirmatory_smoke(
     return ConfirmatorySmokeResult(
         experiment_seed=experiment_seed,
         n_replications=n_replications,
+        baseline=baseline,
+        calibration=calibration,
         records=tuple(records),
     )
 
@@ -304,22 +326,29 @@ def write_paired_confirmatory_smoke(
         writer.writeheader()
         writer.writerows(rows)
 
-    calibration = first_frozen_market_evaluation_calibration()
+    calibration = result.calibration
     metadata = {
         "purpose": "paired R/SW/SF confirmatory pipeline smoke; not treatment-effect estimation",
         "final_confirmatory": False,
         "experiment_seed": result.experiment_seed,
         "n_replications": result.n_replications,
         "n_records": len(result.records),
-        "topology_labels": ["R", "SW", "SF"],
+        "topology_labels": [spec.topology_label for spec in result.baseline.topology_specifications],
         "regimes": ["baseline", "alpha0_control"],
-        "frozen_calibration": {
+        "baseline_alpha": result.baseline.parameters.alpha,
+        "calibration": {
             "c_ret": calibration.reference_scales.return_scale,
             "c_bel": calibration.reference_scales.belief_scale,
             "c_F": calibration.reference_scales.order_flow_scale,
             "c_CID": calibration.cid_threshold,
+            "rolling_window": calibration.protocol.rolling_window,
+            "burn_in": calibration.protocol.burn_in,
+            "stabilisation_length": calibration.protocol.stabilisation_length,
         },
         "interpretation_guard": "do not rank topologies from this smoke",
     }
-    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     return records_path, metadata_path
