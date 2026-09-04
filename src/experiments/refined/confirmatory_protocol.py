@@ -66,6 +66,14 @@ class ConfirmatoryProductionProtocol:
         "mean_sum_individual_action_variances",
     )
 
+    binary_outcomes: tuple[str, ...] = (
+        "threshold_exceeding",
+        "right_censored",
+    )
+    signed_outcomes: tuple[str, ...] = (
+        "mean_pairwise_action_covariance",
+    )
+
     def __post_init__(self) -> None:
         for name in ("experiment_seed", "n_replications", "bootstrap_seed", "n_bootstrap"):
             value = getattr(self, name)
@@ -115,6 +123,13 @@ class ConfirmatoryProductionProtocol:
         if len(set(all_outcomes)) != len(all_outcomes):
             raise ValueError("primary, mechanism, and secondary outcome groups must be disjoint")
 
+        if not set(self.binary_outcomes).issubset(all_outcomes):
+            raise ValueError("binary_outcomes must be declared outcomes")
+        if not set(self.signed_outcomes).issubset(all_outcomes):
+            raise ValueError("signed_outcomes must be declared outcomes")
+        if set(self.binary_outcomes) & set(self.signed_outcomes):
+            raise ValueError("binary and signed outcome sets must be disjoint")
+
     @property
     def primary_family_size(self) -> int:
         return len(self.primary_outcomes) * len(self.topology_pairs)
@@ -122,6 +137,17 @@ class ConfirmatoryProductionProtocol:
     @property
     def mechanism_family_size(self) -> int:
         return len(self.mechanism_outcomes) * len(self.topology_pairs)
+
+    @property
+    def all_outcomes(self) -> tuple[str, ...]:
+        return self.primary_outcomes + self.mechanism_outcomes + self.secondary_outcomes
+
+    def uses_relative_effect(self, outcome: str) -> bool:
+        """Return whether RelGap/RelDelta is meaningful under D045."""
+
+        if outcome not in self.all_outcomes:
+            raise KeyError(outcome)
+        return outcome not in set(self.binary_outcomes) | set(self.signed_outcomes)
 
 
 def first_confirmatory_production_protocol() -> ConfirmatoryProductionProtocol:
