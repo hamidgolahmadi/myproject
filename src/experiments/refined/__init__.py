@@ -32,6 +32,26 @@ from .cid_events import (
     operational_stabilisation,
     threshold_exceedance_rate,
 )
+from .confirmatory_inference import (
+    ConfirmatoryInferenceResult,
+    PairwiseContrastResult,
+    TopologyGapResult,
+    TopologyMeanResult,
+    analyse_confirmatory_records,
+)
+from .confirmatory_production import (
+    confirmatory_configuration_fingerprint,
+    finalize_confirmatory_production,
+    load_all_confirmatory_records,
+    run_confirmatory_production_range,
+)
+from .confirmatory_protocol import (
+    CONFIRMATORY_BOOTSTRAP_SEED,
+    CONFIRMATORY_PRODUCTION_SEED,
+    CONFIRMATORY_SMOKE_SEED,
+    ConfirmatoryProductionProtocol,
+    first_confirmatory_production_protocol,
+)
 from .confirmatory_runner import (
     ConfirmatorySmokeResult,
     ConfirmatoryTreatmentRecord,
@@ -99,7 +119,12 @@ from .market_smoke import (
     summarise_market_scale_smoke,
 )
 from .no_social_calibration_paths import no_social_component_path, no_social_parameters
-from .paired import PairedReplicationPlan, ReplicationSeeds, prepare_paired_replication
+from .paired import (
+    PairedReplicationPlan,
+    ReplicationSeeds,
+    prepare_paired_replication,
+    refined_parameters_fingerprint,
+)
 from .seeding import derive_graph_seed, derive_semantic_seed
 from .sigma0_sensitivity import (
     Sigma0SensitivityProtocol,
@@ -127,6 +152,11 @@ __all__ = [
     "CIDRunClassification",
     "CIDThresholdConfiguration",
     "CIDWeights",
+    "CONFIRMATORY_BOOTSTRAP_SEED",
+    "CONFIRMATORY_PRODUCTION_SEED",
+    "CONFIRMATORY_SMOKE_SEED",
+    "ConfirmatoryInferenceResult",
+    "ConfirmatoryProductionProtocol",
     "ConfirmatorySmokeResult",
     "ConfirmatoryTreatmentRecord",
     "DistributionSummary",
@@ -146,6 +176,7 @@ __all__ = [
     "NoSocialCalibrationSmokeResult",
     "NonNetworkInitialConditions",
     "OperationalStabilisationResult",
+    "PairwiseContrastResult",
     "PairedReplicationPlan",
     "PreparedTopologyTreatment",
     "RealisedInfluencePath",
@@ -164,8 +195,11 @@ __all__ = [
     "StructuralEnsembleRecord",
     "StructuralEnsembleResult",
     "StructuralValidationCalibration",
+    "TopologyGapResult",
+    "TopologyMeanResult",
     "TopologySpecification",
     "TopologyStructuralSummary",
+    "analyse_confirmatory_records",
     "attention_entropy",
     "attention_mobility",
     "attention_overlap",
@@ -173,12 +207,15 @@ __all__ = [
     "calibration_configuration_fingerprint",
     "classify_cid_path",
     "compute_run_level_market_outcomes",
+    "confirmatory_configuration_fingerprint",
     "derive_graph_seed",
     "derive_semantic_seed",
     "diagnose_market_scale",
     "effective_number_of_sources",
     "estimate_cid_threshold",
     "estimate_reference_scales",
+    "finalize_confirmatory_production",
+    "first_confirmatory_production_protocol",
     "first_frozen_market_evaluation_calibration",
     "first_market_evaluation_calibration_protocol",
     "first_refined_baseline_candidate",
@@ -186,6 +223,7 @@ __all__ = [
     "first_structural_validation_calibration",
     "frozen_reference_scales",
     "generate_neutral_nonnetwork_initial_conditions",
+    "load_all_confirmatory_records",
     "load_reference_scales",
     "maximum_absolute_mispricing",
     "mean_absolute_order_flow_per_agent",
@@ -200,11 +238,13 @@ __all__ = [
     "realised_influence_hhi",
     "realised_influence_path",
     "realised_influence_shares",
+    "refined_parameters_fingerprint",
     "return_volatility",
     "rms_mispricing",
     "rolling_action_covariance",
     "rolling_cid",
     "rolling_cid_components",
+    "run_confirmatory_production_range",
     "run_final_market_calibration",
     "run_first_refined_baseline_scale_smoke",
     "run_no_social_calibration_smoke",
