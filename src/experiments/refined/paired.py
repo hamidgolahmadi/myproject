@@ -8,7 +8,9 @@ This module prepares those inputs without running a Monte Carlo experiment.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import hashlib
+import json
 from typing import Iterable
 
 from src.model.refined.parameters import RefinedParameters
@@ -32,6 +34,19 @@ def _topology_labels(labels: Iterable[str]) -> tuple[str, ...]:
     if len(set(values)) != len(values):
         raise ValueError("topology labels must be unique within a paired replication")
     return values
+
+
+def refined_parameters_fingerprint(parameters: RefinedParameters) -> str:
+    """Return a stable SHA-256 fingerprint of a refined parameter vector."""
+
+    if not isinstance(parameters, RefinedParameters):
+        raise TypeError("parameters must be a RefinedParameters")
+    encoded = json.dumps(
+        asdict(parameters),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,20 +80,37 @@ class PairedReplicationPlan:
 
     ``shock_path`` is generated once and must be reused unchanged across all
     topology treatments. ``topology_graph_seeds`` contains one independent
-    graph seed per named topology treatment. The initial-state and
-    type-assignment seeds are reserved explicitly even though the first
-    homogeneous benchmark does not yet use type assignment.
+    graph seed per named topology treatment. The plan is also bound to the
+    exact agent dimension, horizon, and refined parameter vector used to
+    generate that common shock path.  This prevents a later caller from
+    silently reusing shocks under a different economic specification.
     """
 
     seeds: ReplicationSeeds
     topology_graph_seeds: tuple[tuple[str, int], ...]
     shock_path: tuple[PeriodShocks, ...]
+    n_agents: int
+    n_periods: int
+    parameters_fingerprint: str
 
     def __post_init__(self) -> None:
         if not isinstance(self.seeds, ReplicationSeeds):
             raise TypeError("seeds must be a ReplicationSeeds")
         if len(self.topology_graph_seeds) < 2:
             raise ValueError("paired replication must contain at least two topology graph seeds")
+
+        n_agents = nonnegative_integer("n_agents", self.n_agents)
+        n_periods = nonnegative_integer("n_periods", self.n_periods)
+        if n_agents < 1:
+            raise ValueError("n_agents must be strictly positive")
+        if n_periods < 1:
+            raise ValueError("n_periods must be strictly positive")
+        if not isinstance(self.parameters_fingerprint, str) or len(self.parameters_fingerprint) != 64:
+            raise ValueError("parameters_fingerprint must be a 64-character SHA-256 hex string")
+        try:
+            int(self.parameters_fingerprint, 16)
+        except ValueError as exc:
+            raise ValueError("parameters_fingerprint must contain hexadecimal characters") from exc
 
         labels: list[str] = []
         normalised: list[tuple[str, int]] = []
@@ -98,13 +130,18 @@ class PairedReplicationPlan:
 
         if len(set(labels)) != len(labels):
             raise ValueError("topology graph-seed labels must be unique")
-        if len(self.shock_path) == 0:
-            raise ValueError("shock_path must contain at least one period")
+        if len(self.shock_path) != n_periods:
+            raise ValueError("shock_path length must equal n_periods")
         if not all(isinstance(shock, PeriodShocks) for shock in self.shock_path):
             raise TypeError("shock_path must contain only PeriodShocks objects")
+        if any(shock.n_agents != n_agents for shock in self.shock_path):
+            raise ValueError("shock_path agent dimension must equal n_agents")
 
         object.__setattr__(self, "topology_graph_seeds", tuple(normalised))
         object.__setattr__(self, "shock_path", tuple(self.shock_path))
+        object.__setattr__(self, "n_agents", n_agents)
+        object.__setattr__(self, "n_periods", n_periods)
+        object.__setattr__(self, "parameters_fingerprint", self.parameters_fingerprint.lower())
 
     @property
     def topology_labels(self) -> tuple[str, ...]:
@@ -117,6 +154,15 @@ class PairedReplicationPlan:
             if label == topology_label:
                 return graph_seed
         raise KeyError(f"unknown topology label: {topology_label!r}")
+
+    def validate_parameters(self, parameters: RefinedParameters) -> None:
+        """Fail loudly if a caller tries to reuse this plan with other parameters."""
+
+        fingerprint = refined_parameters_fingerprint(parameters)
+        if fingerprint != self.parameters_fingerprint:
+            raise ValueError(
+                "parameters do not match the parameter vector used to generate the paired shock path"
+            )
 
 
 def prepare_paired_replication(
@@ -136,8 +182,9 @@ def prepare_paired_replication(
       ``type_assignment_seed``, and the realised ``shock_path``;
     - topology-specific: one ``graph_seed`` per topology label.
 
-    No graph is generated and no simulation is run here. This keeps treatment
-    construction separate from common-random-number preparation.
+    The plan records a fingerprint of the exact parameter vector used for shock
+    generation, plus the agent dimension and horizon.  Treatment construction
+    validates those bindings before simulation.
     """
 
     if not isinstance(parameters, RefinedParameters):
@@ -190,4 +237,7 @@ def prepare_paired_replication(
         seeds=seeds,
         topology_graph_seeds=topology_graph_seeds,
         shock_path=shock_path,
+        n_agents=n_agents,
+        n_periods=n_periods,
+        parameters_fingerprint=refined_parameters_fingerprint(parameters),
     )
