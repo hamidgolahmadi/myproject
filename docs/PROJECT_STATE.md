@@ -36,16 +36,12 @@ with branch up to date and working tree clean.
 
 This verifies the complete refined core, paired seed/treatment machinery,
 D041 structural validation, market/CID/mechanism diagnostics, D042 production
-calibration runner, Slurm wrapper, D043 frozen baseline, D044 frozen numerical
-market calibration, and the Phase-8 paired confirmatory runner.
+calibration runner, D043 baseline, D044 frozen numerical calibration, and the
+Phase-8 paired confirmatory runner/smoke.
 
 ## Frozen structural design — D041
 
-    N = 100
-    K = 6
-    q = 5
-    p_sw = 0.02
-    a0 = 1.0
+    N=100, K=6, q=5, p_sw=0.02, a0=1.0
 
 1000 graph replications per topology passed the structural gate. Ensemble means:
 
@@ -56,33 +52,28 @@ market calibration, and the Phase-8 paired confirmatory runner.
 
 ## Frozen market baseline — D043
 
-    N = 100
-    K = 6
-    T = 1000
-    q = 5
-    p_sw = 0.02
-    a0 = 1.0
+    N=100, K=6, T=1000, q=5, p_sw=0.02, a0=1.0
 
-    rho_theta    = 0.985
-    sigma_theta  = 0.025
-    v_bar        = 0.0
-    psi          = 1.0
-    sigma_s      = 0.06
-    sigma_b      = 0.025
-    alpha        = 0.75
-    kappa        = 2.4
-    x_bar        = 5.0
-    chi          = 0.02
-    lambda_price = 0.0002
-    sigma_p      = 0.001
-    gamma_R      = 0.9
-    beta         = 1.0
-    sigma_0      = 0.0005
+    rho_theta=0.985
+    sigma_theta=0.025
+    v_bar=0.0
+    psi=1.0
+    sigma_s=0.06
+    sigma_b=0.025
+    alpha=0.75
+    kappa=2.4
+    x_bar=5.0
+    chi=0.02
+    lambda_price=0.0002
+    sigma_p=0.001
+    gamma_R=0.9
+    beta=1.0
+    sigma_0=0.0005
 
-Frozen neutral non-network initialisation:
+Neutral non-network initialisation:
 
     theta_0 ~ stationary AR(1)
-    b_i,0 = theta_0 for all i
+    b_i,0 = theta_0
     p_0 = v_bar + psi theta_0
     x_0 = 0
     R_0 = 0
@@ -91,22 +82,19 @@ W0 remains topology-specific uniform graph-supported attention.
 
 ## Frozen market evaluation — D042 + D044
 
-Method:
+    B=0
+    rolling L=50
+    robustness L={25,100}
+    scale sample=500, seed 2026090201
+    threshold sample=500, seed 2026090202
+    equal CID weights
+    c_CID=95th percentile of run-level peak CID, method=higher
+    component guardrails inactive
+    L_stab=50
 
-    B = 0
-    rolling L = 50
-    robustness L = {25, 100}
-    alpha_calibration = 0
-    scale sample = 500 runs, namespace 2026090201
-    threshold sample = 500 separate runs, namespace 2026090202
-    CID weights = equal thirds
-    c_CID = 95th percentile of run-level peak CID, method=higher
-    component guardrails = inactive
-    L_stab = 50
+Production calibration Slurm job 1505911 completed on ruby047 with exit code 0.
 
-Production Slurm job 1505911 completed on ruby047 with exit code 0.
-
-Frozen numerical calibration:
+Frozen values:
 
     c_ret = 0.0030364359162156455
     c_bel = 0.004182211355781272
@@ -118,115 +106,162 @@ Fingerprints:
     configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
     scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
 
-Canonical API:
+These values are immutable for the first confirmatory topology experiment.
 
-    first_frozen_market_evaluation_calibration()
-    frozen_reference_scales()
+## Phase 8 paired confirmatory smoke — VERIFIED
 
-These values are immutable for the first confirmatory topology experiments.
+Smoke namespace:
 
-## Report revision TODO — sigma_0 Appendix
-
-Add the complete CRN sensitivity table for:
-
-    sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
-
-using experiment seed 2026090203 and the completed 5 paired replications.
-Include reputation-dispersion ratio, mean/max attention mobility, final W
-distance, return SD, RMS mispricing, RMS flow per agent, desired-action p95,
-projection fraction, and inventory-boundary fraction. The table is a
-regularisation-sensitivity diagnostic, not a topology-ranking table.
-
-## Phase 8 — paired confirmatory runner — VERIFIED
-
-Core module:
-
-    src/experiments/refined/confirmatory_runner.py
-
-Driver and batch wrapper:
-
-    scripts/run_refined_confirmatory_smoke.py
-    scripts/run_refined_confirmatory_smoke.slurm
-
-Tests:
-
-    tests/test_refined_confirmatory_runner.py
-
-Canonical runner:
-
-    run_paired_confirmatory_replication(...)
-
-For each replication it:
-
-1. prepares one common shock path and common non-network initial state;
-2. generates topology-specific R/SW/SF graph seeds, G, and W0(G);
-3. runs the frozen D043 model with adaptive attention;
-4. evaluates the frozen D044 CID calibration;
-5. records run-level market outcomes;
-6. records CID peak/exceedance/duration/stabilisation;
-7. records structural graph diagnostics;
-8. records time-averaged realised-influence diagnostics;
-9. records semantic seeds and a SHA-256 fingerprint of the complete non-attention economic path.
-
-The runner does not estimate treatment effects or rank topologies.
-
-## Paired confirmatory smoke — VERIFIED
-
-Smoke-only namespace:
-
-    experiment_seed = 2026090401
+    2026090401
 
 Design:
 
     2 paired replications
-    3 topology treatments: R, SW, SF
-    2 regimes: baseline alpha=0.75 and alpha0 negative control
-    total simulations = 12
+    R / SW / SF
+    baseline alpha=0.75 + alpha0 control
+    12 simulations
 
-Iridis production verification:
+Iridis job 1509863 completed on ruby047 with exit code 0 in 00:01:50.
 
-    Slurm job       = 1509863
-    compute host    = ruby047
-    state           = COMPLETED
-    exit code       = 0
-    elapsed         = 00:01:50
-    CPU utilised    = 00:01:49
-    CPU efficiency  = 99.09%
-    memory utilised = 364.41 MB
+Exact end-to-end alpha-zero topology-null control PASSED:
 
-Critical end-to-end negative control PASSED:
+    replication 0: 1 unique economic-path fingerprint across R/SW/SF
+    replication 1: 1 unique economic-path fingerprint across R/SW/SF
 
-    alpha0 replication 0: 1 unique economic-path fingerprint across R/SW/SF
-    alpha0 replication 1: 1 unique economic-path fingerprint across R/SW/SF
+The smoke is pipeline evidence only and is not used to rank topologies.
 
-Thus at alpha=0 the structural treatment objects remain different while the
-complete non-attention economic paths are exactly topology-null under common
-randomness, as required by D022/D025.
+## D045 first confirmatory production protocol — FROZEN, IMPLEMENTED, AWAITING VERIFICATION
 
-Smoke persistence:
+Canonical protocol:
 
-    results/refined/confirmatory_smoke/confirmatory_smoke_records.csv
-    results/refined/confirmatory_smoke/confirmatory_smoke_metadata.json
+    src/experiments/refined/confirmatory_protocol.py
+    docs/D045_CONFIRMATORY_PROTOCOL.md
 
-The smoke remains pipeline evidence only:
+Frozen production design:
 
-    final_confirmatory = false
-    interpretation_guard = do not rank topologies from this smoke
+    production seed = 2026090402
+    paired replications = 1000
+    topology triplet = (R, SW, SF)
+    simulations = 3000
+    bootstrap seed = 2026090403
+    bootstrap draws = 10000
+    confidence level = 95%
+    family-wise alpha = 0.05
 
-No qualitative topology ordering is inferred from these 2 replications.
+The first production run is baseline-only (`alpha=0.75`). The exact alpha-zero
+negative control is not repeated 1000 times because its market-path topology
+null has already been established exactly and verified end-to-end in Phase 8.
+
+Predeclared pairwise contrasts:
+
+    R - SW
+    R - SF
+    SW - SF
+
+Primary confirmatory family, Holm FWER over 18 pairwise hypotheses:
+
+    return_volatility
+    rms_mispricing
+    maximum_absolute_mispricing
+    mean_absolute_order_flow_per_agent
+    peak_cid
+    threshold_exceeding
+
+Mechanism confirmatory family, separate Holm FWER over 12 hypotheses:
+
+    mean_hub_influence_share
+    mean_attention_overlap
+    mean_pairwise_action_covariance
+    mean_aggregate_order_flow_variance
+
+Secondary outcomes receive pointwise exploratory bootstrap intervals. The
+right-censoring/non-stabilisation rate is retained and censored runs are never
+dropped.
+
+Bootstrap resamples complete matched replication triplets, never topology
+samples independently.
+
+## D045 implementation
+
+New/updated modules:
+
+    src/experiments/refined/paired.py
+    src/experiments/refined/treatments.py
+    src/experiments/refined/action_covariance.py
+    src/experiments/refined/confirmatory_runner.py
+    src/experiments/refined/confirmatory_protocol.py
+    src/experiments/refined/confirmatory_inference.py
+    src/experiments/refined/confirmatory_production.py
+
+Key guards:
+
+- paired plans now bind `n_agents`, `n_periods`, and the exact parameter-vector SHA-256 fingerprint;
+- treatment preparation rejects reuse of a shock plan with different parameters;
+- rolling action covariance is algebraically equivalent but vectorised for production efficiency;
+- every production checkpoint is one indivisible R/SW/SF triplet;
+- checkpoints are specification-fingerprinted and resumable;
+- final inference artifacts are impossible until all 1000 checkpoints exist;
+- no production task prints or ranks topology contrasts before finalization.
+
+Production CLI / Slurm:
+
+    scripts/run_refined_confirmatory_production.py
+    scripts/run_refined_confirmatory_production.slurm
+    scripts/finalize_refined_confirmatory_production.py
+    scripts/finalize_refined_confirmatory_production.slurm
+
+Array design:
+
+    10 tasks x 100 paired replications
+    1 CPU/task
+    4 GB/task
+    2 hour task walltime
+
+No partition/account was invented; Iridis default scheduling is retained.
+
+Final artifacts, only after full completion:
+
+    results/refined/confirmatory_production/confirmatory_records.csv
+    results/refined/confirmatory_production/confirmatory_metadata.json
+    results/refined/confirmatory_production/confirmatory_analysis.json
+    results/refined/confirmatory_production/topology_means.csv
+    results/refined/confirmatory_production/topology_gaps.csv
+    results/refined/confirmatory_production/pairwise_contrasts.csv
+
+## D045 test gate
+
+New regression tests cover:
+
+- parameter-plan binding;
+- vectorised Eq. (239)-(240) equivalence;
+- frozen D045 protocol;
+- matched-triplet bootstrap and inference;
+- checkpoint/resume/finalization;
+- CLI and Slurm array/finalizer contracts.
+
+41 tests were added after the verified 619 checkpoint.
+
+Expected next checkpoint:
+
+    660 passed
+
+Do NOT submit the D045 production array until this checkpoint is verified on
+Iridis with a clean working tree.
+
+## Report revision TODO — sigma_0 Appendix
+
+Add the complete CRN sensitivity table for `sigma_0={1e-6,1e-4,5e-4,1e-3,2e-3}`
+using experiment seed 2026090203 and the completed 5 paired replications. This is
+a regularisation-sensitivity diagnostic, not a topology-ranking table.
 
 ## Immediate gate
 
-1. Treat the Phase-8 paired runner and confirmatory smoke as implementation-verified.
-2. Do NOT launch the large confirmatory Monte Carlo yet.
-3. Next define and freeze a D045 production confirmatory protocol before outcomes are inspected:
-   - production experiment seed namespace;
-   - number of paired replications;
-   - baseline regime(s) included in the first confirmatory run;
-   - checkpoint/resume and artifact layout;
-   - pre-specified treatment contrasts and summary statistics.
-4. Build the resumable production runner against that frozen protocol.
-5. Add deterministic tests and a small production-layer smoke before the large Iridis submission.
+1. Pull latest `refined-model` on Iridis.
+2. Run all refined tests; expected `660 passed`.
+3. Confirm working tree clean.
+4. Only if green, create `results/refined/confirmatory_production` and submit the D045 Slurm array.
+5. Do not run finalization until all 1000 paired checkpoints exist.
+6. Do not inspect or interpret partial topology contrasts during production.
 
 ## Development status
 
@@ -238,7 +273,7 @@ No qualitative topology ordering is inferred from these 2 replications.
     Phase 6  Mechanism diagnostics                              COMPLETE
     Phase 7  Frozen baseline + market calibration               COMPLETE
     Phase 8  Paired confirmatory market runner                  COMPLETE
-    Phase 9  Confirmatory production protocol / large MC        NEXT
+    Phase 9  D045 confirmatory production / large MC            IN PROGRESS
     Phase 10 alpha/beta/gamma experiments + heterogeneity       PLANNED
     Phase 11 Endogenous G formation                             PLANNED
     Phase 12 Full Jacobian / Lyapunov                           PLANNED
