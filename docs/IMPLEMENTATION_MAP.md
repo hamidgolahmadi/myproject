@@ -184,7 +184,7 @@ Fingerprints:
     configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
     scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
 
-Status: VERIFIED at 599-test checkpoint.
+Status: VERIFIED.
 
 ## Paired confirmatory market runner — Phase 8
 
@@ -221,13 +221,15 @@ Per treatment the runner persists:
 The runner always uses the common-random-number paired treatment constructor.
 It does not estimate treatment effects or rank topologies.
 
-## Confirmatory smoke negative control
+Status: VERIFIED at the 619-test checkpoint.
+
+## Confirmatory smoke negative control — VERIFIED
 
 Smoke-only seed namespace:
 
     2026090401
 
-Default:
+Design:
 
     2 paired replications
     R / SW / SF
@@ -235,39 +237,44 @@ Default:
     alpha0_control alpha=0
     12 simulations total
 
-Within every alpha0 replication, R/SW/SF must have exactly the same complete
-non-attention economic-path fingerprint. This is an end-to-end topology-null
-check: G and W may differ, but market paths cannot depend on them when alpha=0.
+Iridis Slurm job:
+
+    job = 1509863
+    host = ruby047
+    state = COMPLETED
+    exit code = 0
+    elapsed = 00:01:50
+    CPU efficiency = 99.09%
+    memory utilised = 364.41 MB
+
+Within every alpha0 replication, R/SW/SF produced exactly the same complete
+non-attention economic-path fingerprint:
+
+    replication 0 -> 1 unique fingerprint
+    replication 1 -> 1 unique fingerprint
+
+This is the required end-to-end topology-null check. G and W remain distinct
+across treatments, but market paths do not depend on them when alpha=0.
 
 Persistence:
 
     results/refined/confirmatory_smoke/confirmatory_smoke_records.csv
     results/refined/confirmatory_smoke/confirmatory_smoke_metadata.json
 
-Metadata explicitly states:
-
-    final_confirmatory=false
-    do not rank topologies from this smoke
-
-No qualitative R/SW/SF ordering is asserted in smoke tests; D041 already
-validates architecture at the ensemble level.
-
-New confirmatory tests: 20.
-
-Expected checkpoint:
-
-    619 passed
+The smoke is explicitly non-final and must not be used to rank R/SW/SF.
 
 ## Current gate
 
-1. Verify 619 tests on Iridis.
-2. Submit the confirmatory smoke with the Slurm wrapper.
-3. Require one unique alpha0 economic-path fingerprint per replication.
-4. Verify CSV/JSON persistence and `final_confirmatory=false`.
-5. Do not interpret baseline topology ordering from smoke output.
-6. Only after smoke success design the resumable large confirmatory Monte Carlo output layer and freeze its experiment seed/sample size.
-
-Large confirmatory topology Monte Carlo remains prohibited until the smoke passes.
+1. The paired confirmatory runner and its end-to-end smoke are verified.
+2. Do not launch a large confirmatory topology Monte Carlo yet.
+3. Next freeze a D045 production confirmatory protocol before inspecting production outcomes:
+   - disjoint production seed namespace;
+   - paired replication count;
+   - exact baseline/control regime set for the first production run;
+   - resumable checkpoint/artifact layout;
+   - pre-specified treatment contrasts and summary statistics.
+4. Implement the resumable production layer against D045.
+5. Test it deterministically and run a small production-layer smoke before the large Iridis job.
 
 Formal stability remains separate: equilibrium X*, full Jacobian J*, `spr(J*)`,
 and Lyapunov analysis. The spectral radius of row-stochastic W is never the
