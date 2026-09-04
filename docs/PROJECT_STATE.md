@@ -26,66 +26,35 @@ Iridis shell setup:
     unset PYTHONPATH
     git switch refined-model
 
-## Verified architecture
+## Latest verified checkpoint
 
-Core refined model Eqs. (35)-(82): VERIFIED.
+Iridis:
 
-Paired semantic seeds, common shock paths, topology-specific G/W0, generated-treatment alpha=0 control: VERIFIED.
+    599 passed in 11.64s
 
-Structural diagnostics and D041 3000-graph validation: VERIFIED.
+with branch up to date and working tree clean.
 
-Structural-validation means:
+This verifies the complete refined core, paired seed/treatment machinery,
+D041 structural validation, market/CID/mechanism diagnostics, D042 production
+calibration runner, Slurm wrapper, D043 frozen baseline, and D044 frozen
+numerical market calibration.
+
+## Frozen structural design — D041
+
+    N = 100
+    K = 6
+    q = 5
+    p_sw = 0.02
+    a0 = 1.0
+
+1000 graph replications per topology passed the structural gate. Ensemble means:
 
               Gini      top-5 share   clustering    APL-LCC    LCC share
     R       0.21951       0.09371       0.10846      2.09894      1.00000
     SW      0.03201       0.05932       0.54982      4.46807      1.00000
     SF      0.51145       0.18908       0.13959      2.08013      1.00000
 
-Evaluation/mechanism layers VERIFIED:
-
-- Eqs. (236)-(238), (288)-(289): run-level outcomes;
-- Eqs. (239)-(240): rolling action covariance and exact net-flow variance decomposition;
-- Eqs. (241)-(246): CID components, scales, weights, CID;
-- Eqs. (247)-(250): exceedance, duration, stabilisation, right-censoring;
-- Eqs. (251)-(265): entropy/effective sources, realised influence/HHI, hub influence, overlap, mobility.
-
-Eq. (266)-(267) KL-to-transition-prior remains deferred with attention inertia.
-
-## Latest verified test checkpoint
-
-Iridis:
-
-    589 passed in 14.22s
-
-with branch up to date and working tree clean.
-
-This verifies the production D042 calibration runner, exact alpha=0 adaptive-vs-fixed attention equivalence for CID components, checkpoint/resume logic, specification fingerprints, and all earlier refined-model layers.
-
-The subsequent Slurm-wrapper tests and newly added frozen-calibration tests are committed but await the next Iridis checkpoint.
-
-## D042 market-evaluation calibration method — FROZEN
-
-    T = 1000
-    B = 0
-    rolling L = 50
-    robustness L = {25, 100}
-    alpha_calibration = 0
-    scale sample = 500 runs, namespace 2026090201
-    threshold sample = 500 separate runs, namespace 2026090202
-    reference scales = pooled component medians
-    CID weights = equal thirds
-    c_CID = 95th percentile of run-level peak CID, quantile method higher
-    component guardrails = inactive baseline
-    L_stab = 50
-
-## D043 first refined baseline — FROZEN AND VERIFIED
-
-Canonical API:
-
-    RefinedBaselineSpecification
-    first_refined_baseline_specification()
-
-Frozen design:
+## Frozen market baseline — D043
 
     N = 100
     K = 6
@@ -93,8 +62,6 @@ Frozen design:
     q = 5
     p_sw = 0.02
     a0 = 1.0
-
-Frozen parameters:
 
     rho_theta    = 0.985
     sigma_theta  = 0.025
@@ -120,128 +87,144 @@ Frozen neutral non-network initialisation:
     x_0 = 0
     R_0 = 0
 
-W0 remains graph-supported uniform attention.
+W0 remains topology-specific uniform graph-supported attention.
 
-## sigma_0 evidence and report TODO
+## Frozen market evaluation — D042 + D044
 
-The CRN OAT sensitivity used:
+Method:
 
-    sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
-    experiment seed = 2026090203
-    5 paired replications
-
-At the frozen `sigma_0=5e-4`, pooled medians were approximately:
-
-    raw local reputation std / sigma_0    1.357
-    mean attention mobility                0.02950
-    max attention mobility                 0.32234
-    final W distance from W0               0.29332
-    return SD                              0.003428
-    RMS mispricing                         0.068518
-    projection fraction                    0.14385
-
-REPORT TODO: add the complete sigma_0 sensitivity table to an Appendix / implementation-robustness section. Include at minimum reputation-dispersion ratio, mean/max attention mobility, final W distance, return SD, RMS mispricing, RMS flow per agent, desired-action p95, projection fraction, and inventory-boundary fraction for all five sigma_0 values. The main text should retain only the concise regularisation rationale.
-
-## No-social D042 calibration smoke — VERIFIED
-
-Smoke-only seeds:
-
-    scale = 2026090204
-    threshold = 2026090205
-
-Design:
-
-    3 scale runs + 3 threshold runs
-    alpha = 0
-    N = 100
-    T = 1000
     B = 0
-    L = 50
-    rolling endpoints/run = 951
+    rolling L = 50
+    robustness L = {25, 100}
+    alpha_calibration = 0
+    scale sample = 500 runs, namespace 2026090201
+    threshold sample = 500 separate runs, namespace 2026090202
+    CID weights = equal thirds
+    c_CID = 95th percentile of run-level peak CID, method=higher
+    component guardrails = inactive
+    L_stab = 50
 
-Observed smoke-only values:
+Production Slurm job 1505911 completed on ruby047 with exit code 0.
 
-    c_ret = 0.003087925449
-    c_bel = 0.004183656828
-    c_F   = 0.1172234222
-    c_CID = 1.713734032
-
-Artifact:
-
-    results/refined/no_social_calibration_smoke/calibration_smoke.json
-
-It correctly records `final_calibration=false`. These 3+3 values are pipeline evidence only and MUST NOT be frozen or reused as D042 final calibration values.
-
-## Production D042 calibration — COMPLETE
-
-Production modules:
-
-    src/experiments/refined/no_social_calibration_paths.py
-    src/experiments/refined/market_calibration_run.py
-    scripts/run_refined_market_calibration.py
-    scripts/run_refined_market_calibration.slurm
-
-Production run:
-
-    scale replications      = 500 / 500
-    threshold replications  = 500 / 500
-    Slurm job               = 1505911
-    compute host            = ruby047
-    state                   = COMPLETED
-    exit code               = 0
-    elapsed                 = 01:06:36
-    CPU efficiency          = 99.32%
-    peak reported memory    = 218.15 MB
-
-The production artifact is:
-
-    results/refined/market_calibration/market_evaluation_calibration.json
-
-It records `final_calibration=true`.
-
-Final frozen numerical calibration:
+Frozen numerical calibration:
 
     c_ret = 0.0030364359162156455
     c_bel = 0.004182211355781272
     c_F   = 0.11381404220614316
     c_CID = 1.8326578831721285
 
-Reproducibility fingerprints:
+Fingerprints:
 
     configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
     scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
 
-Canonical frozen code API:
+Canonical API:
 
-    src/experiments/refined/frozen_market_calibration.py
     first_frozen_market_evaluation_calibration()
     frozen_reference_scales()
 
-Canonical documentation:
+These values are immutable for the first confirmatory topology experiments.
 
-    docs/FINAL_MARKET_CALIBRATION.md
+## Report revision TODO — sigma_0 Appendix
 
-These numerical values are now fixed inputs to the first confirmatory topology experiments and must not be retuned after inspecting R/SW/SF outcomes.
+Add the complete CRN sensitivity table for:
 
-## Calibration computational shortcut
+    sigma_0 = {1e-6, 1e-4, 5e-4, 1e-3, 2e-3}
 
-At alpha=0, attention does not enter beliefs. Exact regression tests establish that adaptive and fixed attention generate identical return, belief, order-flow, and CID-component paths under common graph/shock/initial-state randomness.
+using experiment seed 2026090203 and the completed 5 paired replications.
+Include reputation-dispersion ratio, mean/max attention mobility, final W
+distance, return SD, RMS mispricing, RMS flow per agent, desired-action p95,
+projection fraction, and inventory-boundary fraction. The table is a
+regularisation-sensitivity diagnostic, not a topology-ranking table.
 
-The production D042 calibration therefore used `adaptive_attention=False` to avoid unnecessary attention updates. This shortcut applies only to D042 market/CID calibration outcomes, not to influence or attention diagnostics.
+## Phase 8 — paired confirmatory runner — IMPLEMENTED, AWAITING VERIFICATION
+
+New core module:
+
+    src/experiments/refined/confirmatory_runner.py
+
+Driver:
+
+    scripts/run_refined_confirmatory_smoke.py
+
+Tests:
+
+    tests/test_refined_confirmatory_runner.py
+
+Canonical runner:
+
+    run_paired_confirmatory_replication(...)
+
+For each replication it:
+
+1. prepares one common shock path and common non-network initial state;
+2. generates topology-specific R/SW/SF graph seeds, G, and W0(G);
+3. runs the frozen D043 model with adaptive attention;
+4. evaluates the frozen D044 CID calibration;
+5. records run-level market outcomes;
+6. records CID peak/exceedance/duration/stabilisation;
+7. records structural graph diagnostics;
+8. records time-averaged realised-influence diagnostics;
+9. records semantic seeds and a SHA-256 fingerprint of the complete non-attention economic path.
+
+The runner does not estimate treatment effects or rank topologies.
+
+## Confirmatory smoke design
+
+Smoke-only namespace:
+
+    experiment_seed = 2026090401
+
+Default smoke:
+
+    2 paired replications
+    3 topology treatments: R, SW, SF
+    2 regimes: baseline alpha=0.75 and alpha0 negative control
+    total simulations = 12
+
+The baseline and alpha0 regimes reuse the same semantic seed namespace and
+replication IDs. Since shock and neutral-initial-state laws do not depend on
+alpha, this preserves common randomness across the control contrast as well.
+
+Critical end-to-end negative control:
+
+    alpha = 0
+
+must produce exactly one unique economic-path fingerprint across R/SW/SF within
+each replication, even though graph and influence diagnostics remain
+ topology-specific. This validates that network propagation is truly absent
+from market outcomes while the structural treatment objects remain distinct.
+
+Smoke persistence:
+
+    results/refined/confirmatory_smoke/confirmatory_smoke_records.csv
+    results/refined/confirmatory_smoke/confirmatory_smoke_metadata.json
+
+Metadata is explicitly:
+
+    final_confirmatory = false
+    interpretation_guard = do not rank topologies from this smoke
+
+No qualitative topology ordering is asserted in unit tests. D041 already
+validated treatment architecture at the ensemble level.
+
+The new confirmatory test file contributes 20 cases.
+
+Expected next checkpoint:
+
+    619 passed
 
 ## Immediate gate
 
 1. Pull latest `refined-model` on Iridis.
-2. Run all refined tests. With four Slurm-wrapper tests plus six frozen-calibration tests added after the verified 589 checkpoint, expected total is:
+2. Run all refined tests; expected `619 passed`.
+3. If green, run the paired confirmatory smoke.
+4. Verify for every alpha0 replication that R/SW/SF produce exactly one unique economic-path fingerprint.
+5. Verify CSV/JSON persistence and `final_confirmatory=false`.
+6. Do not interpret or rank baseline topology outcomes from the smoke.
+7. Only after the smoke passes should we design the resumable large confirmatory Monte Carlo output layer and freeze its experiment seed/sample size.
 
-       599 passed
-
-3. If green, treat D042 numerical calibration as implementation-verified and immutable.
-4. Build the paired confirmatory market-output runner using the frozen D043 market specification and `first_frozen_market_evaluation_calibration()`.
-5. Run a small paired R/SW/SF confirmatory smoke with common random numbers and persistence checks.
-6. Only after that small paired smoke passes may large confirmatory topology market Monte Carlo be submitted.
-
-Large confirmatory topology-evaluation Monte Carlo remains prohibited until the paired confirmatory smoke passes.
+Large confirmatory topology Monte Carlo remains prohibited until this smoke passes.
 
 ## Development status
 
@@ -251,8 +234,8 @@ Large confirmatory topology-evaluation Monte Carlo remains prohibited until the 
     Phase 4  Paired design + structural validation              COMPLETE
     Phase 5  Market metrics / CID / calibration method          COMPLETE
     Phase 6  Mechanism diagnostics                              COMPLETE
-    Phase 7  Frozen baseline + market calibration               COMPLETE (pending 599-test verification of final freeze record)
-    Phase 8  Paired confirmatory market runner                  NEXT
+    Phase 7  Frozen baseline + market calibration               COMPLETE
+    Phase 8  Paired confirmatory market runner                  IN PROGRESS
     Phase 9  alpha/beta/gamma experiments + heterogeneity       PLANNED
     Phase 10 Endogenous G formation                             PLANNED
     Phase 11 Full Jacobian / Lyapunov                           PLANNED
