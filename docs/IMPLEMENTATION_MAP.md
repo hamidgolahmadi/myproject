@@ -47,18 +47,11 @@ Topology-specific:
     realised G
     graph-supported W0
 
-D045 protection:
+`PairedReplicationPlan` stores n_agents, n_periods, the exact parameter
+fingerprint, semantic seeds, topology graph seeds, and the common shock path.
+Treatment construction validates the parameter fingerprint before execution.
 
-    PairedReplicationPlan.n_agents
-    PairedReplicationPlan.n_periods
-    PairedReplicationPlan.parameters_fingerprint
-    PairedReplicationPlan.validate_parameters(...)
-
-The common shock plan is cryptographically bound to the exact refined
-parameter vector used to generate it. Treatment construction fails on a later
-parameter mismatch.
-
-Status: VERIFIED at the 660-test checkpoint.
+Status: VERIFIED.
 
 ## Topologies and structural validation — D041
 
@@ -93,12 +86,10 @@ Mapping:
     Eqs. (247)-(250): exceedance / duration / stabilisation / censoring
     Eqs. (288)-(289): MAR / time-averaged belief variance
 
-`rolling_action_covariance` uses rolling sums/squared sums and the exact Eq.
-(240) identity rather than constructing an N-by-N covariance matrix at every
-endpoint. A direct NumPy covariance regression test verifies algebraic
-equivalence.
+`rolling_action_covariance` uses the exact Eq. (240) variance decomposition rather
+than constructing an N-by-N covariance matrix at every rolling endpoint.
 
-Status: VERIFIED at the 660-test checkpoint.
+Status: VERIFIED.
 
 ## Realised influence — Eqs. (251)-(265)
 
@@ -121,8 +112,6 @@ Eqs. (266)-(267) KL-to-transition-prior remain deferred with attention inertia.
     alpha=0.75, kappa=2.4, chi=0.02, lambda_price=0.0002
     gamma_R=0.9, beta=1.0, sigma_0=0.0005
 
-plus the remaining frozen information/noise parameters in the baseline document.
-
 Status: VERIFIED.
 
 ## D042 / D044 frozen market evaluation
@@ -133,14 +122,14 @@ Status: VERIFIED.
     src/experiments/refined/frozen_market_calibration.py
     docs/FINAL_MARKET_CALIBRATION.md
 
-Production calibration job 1505911 completed 500+500 no-social runs.
-
 Frozen values:
 
     c_ret = 0.0030364359162156455
     c_bel = 0.004182211355781272
     c_F   = 0.11381404220614316
     c_CID = 1.8326578831721285
+
+Production calibration job 1505911 completed 500+500 no-social runs.
 
 Status: VERIFIED.
 
@@ -156,212 +145,188 @@ Canonical API:
     run_paired_confirmatory_smoke(...)
     write_paired_confirmatory_smoke(...)
 
-Per treatment it records semantic seeds, economic-path fingerprint, market
-outcomes, CID classification, graph diagnostics, realised-influence diagnostics,
-and the production mechanism summaries:
+The runner is intentionally retained unchanged as the common treatment engine
+for later sweeps. D047 does not add beta to `ConfirmatoryTreatmentRecord`; it
+wraps that frozen schema in `BetaSweepTreatmentRecord`, preserving D045/D046
+checkpoint/configuration reproducibility.
 
-    mean_pairwise_action_covariance
-    mean_sum_individual_action_variances
-    mean_aggregate_order_flow_variance
+Status: VERIFIED.
 
-The same runner now also supplies D046 via `alpha_override`, without changing
-any other frozen D043 parameter. The canonical `RefinedParameters` object
-continues to enforce the report-defined domain `0 <= alpha < 1`.
+## D045 confirmatory production — VERIFIED AND FROZEN
 
-Status: VERIFIED at the 660-test checkpoint.
-
-## Phase-8 smoke — VERIFIED
-
-    scripts/run_refined_confirmatory_smoke.py
-    scripts/run_refined_confirmatory_smoke.slurm
-    tests/test_refined_confirmatory_runner.py
-
-Smoke namespace `2026090401`, 2 paired replications, R/SW/SF,
-baseline+alpha0. Slurm job 1509863 completed successfully. Both alpha0
-replications produced exactly one non-attention economic-path fingerprint across
-R/SW/SF.
-
-## D045 frozen production protocol
+Protocol/inference/production:
 
     src/experiments/refined/confirmatory_protocol.py
-    docs/D045_CONFIRMATORY_PROTOCOL.md
-
-Frozen design:
-
-    production seed = 2026090402
-    n paired replications = 1000
-    bootstrap seed = 2026090403
-    bootstrap draws = 10000
-    confidence = 95%
-    familywise alpha = 0.05
-    topology pairs = R-SW, R-SF, SW-SF
-
-Primary family: six market/CID outcomes x three pairs = 18 hypotheses.
-Mechanism family: four mechanism outcomes x three pairs = 12 hypotheses.
-Holm FWER is applied separately to the two predeclared families. Secondary
-outcomes are pointwise exploratory.
-
-The first production run contains baseline `alpha=0.75` only. Alpha zero is not
-repeated at scale because its exact topology-null property already passed the
-Phase-8 end-to-end smoke.
-
-## D045 matched-triplet inference
-
     src/experiments/refined/confirmatory_inference.py
-
-Implements complete-triplet validation, topology means/gaps, all three named
-pairwise contrasts, triplet-preserving 10000-draw bootstrap, percentile
-intervals, centered bootstrap p-values, Holm FWER for the primary and mechanism
-families, exploratory secondary intervals, and censoring-aware counts.
-
-## D045 resumable production and execution
-
     src/experiments/refined/confirmatory_production.py
-    scripts/run_refined_confirmatory_production.py
-    scripts/run_refined_confirmatory_production.slurm
-    scripts/finalize_refined_confirmatory_production.py
-    scripts/finalize_refined_confirmatory_production.slurm
-
-Per-replication checkpoint:
-
-    results/refined/confirmatory_production/replications/replication_XXXX.json
-
-Each checkpoint is one complete R/SW/SF triplet and stores a SHA-256
-configuration fingerprint. Finalization is gated on all 1000 checkpoints.
-
-Production array `1511972` completed all 10 tasks at exit code 0 on commit
-`b5fbf52dd988637d90d7b5bc5c346c20551b66be`. Finalization job `1512116`
-completed successfully on the same commit.
-
-Final verified artifacts:
-
-    confirmatory_records.csv
-    confirmatory_metadata.json
-    confirmatory_analysis.json
-    topology_means.csv
-    topology_gaps.csv
-    pairwise_contrasts.csv
-
-Canonical result summary:
-
+    docs/D045_CONFIRMATORY_PROTOCOL.md
     docs/D045_RESULTS.md
+
+Production array 1511972 completed 1000 matched triplets on commit
+`b5fbf52dd988637d90d7b5bc5c346c20551b66be`; finalizer 1512116 completed on
+the same commit.
 
 Status: VERIFIED AND FROZEN.
 
-## D045 tests
+## D046 exploratory alpha sweep — VERIFIED AND COMPLETE
 
-    tests/test_refined_paired_parameter_binding.py
-    tests/test_refined_action_covariance_vectorised.py
-    tests/test_refined_confirmatory_protocol.py
-    tests/test_refined_confirmatory_inference.py
-    tests/test_refined_confirmatory_production.py
-    tests/test_refined_confirmatory_production_slurm.py
-
-Final D045 checkpoint:
-
-    660 passed
-
-## D046 exploratory alpha sweep protocol
+Protocol:
 
     src/experiments/refined/alpha_sweep_protocol.py
     docs/D046_ALPHA_SWEEP_PROTOCOL.md
 
-Frozen exploratory design after the pre-execution domain correction:
+Frozen grid:
 
-    experiment seed = 2026090404
-    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 0.99)
-    paired replications per alpha = 300
+    alpha = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 0.99)
+    R = 300 per alpha
     total simulations = 7200
-    bootstrap seed = 2026090405
-    bootstrap draws = 5000
-    confidence = 95%
+    bootstrap = 5000 matched full-replication blocks
 
-D046 is OAT diagnostic/regime mapping, not a second confirmatory family.
-D043/D044 values remain fixed. Alpha zero is the exact negative-control endpoint,
-alpha 0.75 retains the D045 anchor, and alpha 0.99 is the near-boundary endpoint.
-The draft alpha=1.00 endpoint was removed before any D046 run because the report
-and `RefinedParameters` require `0 <= alpha < 1`.
-
-## D046 matched-block analysis
+Analysis/production:
 
     src/experiments/refined/alpha_sweep_analysis.py
-
-One replication is treated as a complete matched block containing all eight
-alpha values and all three topology treatments. Bootstrap resampling preserves
-that full block. Independent resampling by alpha or topology is prohibited.
-
-Outputs include, at every alpha:
-
-    topology means
-    absolute/relative topology gaps
-    R-SW, R-SF, SW-SF contrasts
-    percentile bootstrap intervals
-
-No Holm/FWER rejection family is attached to D046. The final analysis also
-requires the exact alpha=0 economic-path topology-null property for every
-replication.
-
-## D046 resumable production layer
-
     src/experiments/refined/alpha_sweep_production.py
-
-Checkpoint path:
-
-    results/refined/alpha_sweep/checkpoints/alpha_XX/replication_XXXX.json
-
-Each checkpoint is one complete R/SW/SF triplet for one alpha/replication pair.
-Finalization requires all `8 x 300 = 2400` checkpoints.
-
-Final planned artifacts:
-
-    alpha_sweep_records.csv
-    alpha_sweep_metadata.json
-    alpha_sweep_analysis.json
-    alpha_topology_means.csv
-    alpha_topology_gaps.csv
-    alpha_pairwise_contrasts.csv
-
-## D046 execution layer
-
     scripts/run_refined_alpha_sweep.py
     scripts/run_refined_alpha_sweep.slurm
     scripts/finalize_refined_alpha_sweep.py
     scripts/finalize_refined_alpha_sweep.slurm
 
+Execution:
+
+    array job 1526697: 48/48 tasks COMPLETED, exit 0:0
+    checkpoints: 2400/2400
+    non-empty stderr: 0
+    finalizer 1527139: COMPLETED exit 0 on ruby047
+    production/finalizer commit: 5283a338d75560f27d28a19d48e07f86cdeada07
+
+The final analysis verified the exact alpha=0 economic-path topology null over
+all 300 replications.
+
+Main result mapping:
+
+    docs/D046_RESULTS.md
+
+Key result: absolute market activity declines with alpha while topology
+differentiation strengthens into the coherent pre-boundary region around
+alpha=0.85; alpha=0.95--0.99 shows high-social-weight ranking reversals.
+
+Status: VERIFIED AND COMPLETE.
+
+## D047 exploratory beta sweep protocol
+
+    src/experiments/refined/beta_sweep_protocol.py
+    docs/D047_BETA_SWEEP_PROTOCOL.md
+
+Frozen exploratory design:
+
+    experiment seed = 2026090701
+    alpha anchor = 0.85
+    beta = (0.00, 0.01, 0.10, 0.50, 1.00, 2.00, 5.00, 10.00, 100.00, 1000.00)
+    paired replications per beta = 300
+    total simulations = 9000
+    bootstrap seed = 2026090702
+    bootstrap draws = 5000
+    confidence = 95%
+
+The grid contains the exact beta=0 no-selectivity control, the D043 beta=1
+anchor, the report's beta=2--5 transition region, and the report-scale high-beta
+range through 1000.
+
+D047 is exploratory because alpha=0.85 was selected after D046 outcome
+inspection.
+
+## D047 matched-block analysis
+
+    src/experiments/refined/beta_sweep_analysis.py
+
+New wrapper schema:
+
+    BetaSweepTreatmentRecord(beta, treatment: ConfirmatoryTreatmentRecord)
+
+This avoids mutating the frozen D045/D046 treatment record schema.
+
+One replication is the complete matched block containing all ten beta values and
+all R/SW/SF treatments. Final analysis validates that shock seeds,
+initial-state seeds, and topology-specific graph seeds are identical across the
+beta grid within each replication.
+
+Outputs at every beta:
+
+    topology means
+    absolute/relative topology gaps where meaningful
+    R-SW, R-SF, SW-SF contrasts
+    matched-block percentile bootstrap intervals
+
+No Holm/FWER family is attached to D047.
+
+## D047 resumable production layer
+
+    src/experiments/refined/beta_sweep_production.py
+
+For each beta, the frozen D043 baseline is copied with only:
+
+    alpha -> 0.85
+    beta  -> selected beta grid value
+
+changed. All remaining D043 parameters and D044 evaluation definitions stay
+fixed.
+
+Checkpoint path:
+
+    results/refined/beta_sweep/checkpoints/beta_XX/replication_XXXX.json
+
+Each checkpoint is one complete R/SW/SF triplet for one beta/replication pair.
+Finalization requires all `10 x 300 = 3000` checkpoints.
+
+Final planned artifacts:
+
+    beta_sweep_records.csv
+    beta_sweep_metadata.json
+    beta_sweep_analysis.json
+    beta_topology_means.csv
+    beta_topology_gaps.csv
+    beta_pairwise_contrasts.csv
+
+## D047 execution layer
+
+    scripts/run_refined_beta_sweep.py
+    scripts/run_refined_beta_sweep.slurm
+    scripts/finalize_refined_beta_sweep.py
+    scripts/finalize_refined_beta_sweep.slurm
+
 Array design:
 
-    48 tasks total
-    8 alpha slices x 6 blocks
+    60 tasks total
+    10 beta slices x 6 blocks
     50 paired replications per task
     max 16 concurrent tasks
     one CPU/task
     4 GB/task
     one-hour walltime/task
 
-No partition/account is guessed. Login-node execution remains guarded.
+No Slurm partition/account is guessed. Login-node execution remains guarded.
 
-## D046 tests
+## D047 tests
 
-    tests/test_refined_alpha_sweep_protocol.py
-    tests/test_refined_alpha_sweep_analysis.py
-    tests/test_refined_alpha_sweep_production.py
-    tests/test_refined_alpha_sweep_slurm.py
+    tests/test_refined_beta_sweep_protocol.py
+    tests/test_refined_beta_sweep_analysis.py
+    tests/test_refined_beta_sweep_production.py
+    tests/test_refined_beta_sweep_slurm.py
 
-29 new test cases are now present beyond the verified 660 checkpoint, including
-an explicit guard that rejects alpha=1.0 from the D046 grid.
+31 new D047 tests were added after the verified 689-test checkpoint.
 
 Expected next checkpoint:
 
-    689 passed
+    720 passed
 
 ## Current gate
 
 1. Pull latest `refined-model`.
-2. Run all refined tests; expected `689 passed`.
+2. Run all refined tests; expected `720 passed`.
 3. Confirm clean working tree.
-4. Do not submit D046 until the 689-test gate is green.
-5. Before `sbatch`, create `results/refined/alpha_sweep` so Slurm can open log files.
-6. Do not inspect partial alpha/topology curves; finalization requires all 2400 checkpoints.
+4. Do not submit D047 until the 720-test gate is green.
+5. Before `sbatch`, create `results/refined/beta_sweep` so Slurm can open logs.
+6. Do not inspect partial beta/topology curves; finalization requires all 3000 checkpoints.
 
 Formal stability remains separate: equilibrium X*, full Jacobian J*, `spr(J*)`,
 and Lyapunov analysis. The spectral radius of row-stochastic W is never the
