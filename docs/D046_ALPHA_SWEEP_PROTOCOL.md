@@ -2,7 +2,7 @@
 
 Status: FROZEN BEFORE D046 OUTCOME INSPECTION
 
-Date: 2026-09-04
+Date: 2026-09-07
 
 ## Purpose
 
@@ -17,7 +17,7 @@ It does not replace the later joint-parameter identification design.
 ## Frozen design
 
     experiment seed = 2026090404
-    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 1.00)
+    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 0.99)
     paired replications per alpha = 300
     topology triplet = (R, SW, SF)
     total simulations = 8 * 300 * 3 = 7200
@@ -44,13 +44,22 @@ The grid deliberately includes:
 - `0.60`: intermediate transmission below the D043 anchor;
 - `0.75`: the D043/D045 baseline anchor;
 - `0.85, 0.95`: high social transmission where synchronisation may strengthen;
-- `1.00`: boundary endpoint where the contemporaneous private-signal weight
-  `(1-alpha)` is zero.
+- `0.99`: near-boundary high social transmission while remaining inside the
+  report-defined admissible domain `0 <= alpha < 1`.
 
 The grid is non-uniform because the report's conceptual regime discussion
 places particular interest on possible high-alpha synchronisation/saturation.
 No alpha value is selected because of D046 outcomes; this grid is frozen before
 running D046.
+
+### Pre-execution correction of the upper endpoint
+
+The first implementation draft used `alpha=1.00` as the final endpoint. The
+Iridis test gate caught that this violates both the doctoral report and the
+canonical `RefinedParameters` domain, which require `0 <= alpha < 1`. No D046
+production run or D046 outcome inspection had occurred. The endpoint was
+therefore corrected to `alpha=0.99` before execution. This is a mathematical
+consistency correction, not outcome-based tuning.
 
 ## Common-random-number design
 
