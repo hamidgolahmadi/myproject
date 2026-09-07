@@ -18,7 +18,7 @@ def test_frozen_alpha_sweep_defaults_are_exact():
     protocol = first_alpha_sweep_protocol()
     assert protocol.experiment_seed == 2026090404
     assert protocol.bootstrap_seed == 2026090405
-    assert protocol.alpha_grid == (0.0, 0.2, 0.4, 0.6, 0.75, 0.85, 0.95, 1.0)
+    assert protocol.alpha_grid == (0.0, 0.2, 0.4, 0.6, 0.75, 0.85, 0.95, 0.99)
     assert protocol.n_replications == 300
     assert protocol.n_bootstrap == 5000
     assert protocol.confidence_level == 0.95
@@ -39,22 +39,27 @@ def test_alpha_sweep_seed_namespaces_are_disjoint():
 
 def test_alpha_grid_rejects_unsorted_values():
     with pytest.raises(ValueError, match="strictly increasing"):
-        AlphaSweepProtocol(alpha_grid=(0.0, 0.75, 0.5, 1.0))
+        AlphaSweepProtocol(alpha_grid=(0.0, 0.75, 0.5, 0.99))
 
 
 def test_alpha_grid_requires_zero_endpoint():
     with pytest.raises(ValueError, match="alpha=0"):
-        AlphaSweepProtocol(alpha_grid=(0.1, 0.75, 1.0))
+        AlphaSweepProtocol(alpha_grid=(0.1, 0.75, 0.99))
 
 
-def test_alpha_grid_requires_one_endpoint():
-    with pytest.raises(ValueError, match="alpha=1"):
+def test_alpha_grid_requires_near_boundary_endpoint():
+    with pytest.raises(ValueError, match="alpha=0.99"):
         AlphaSweepProtocol(alpha_grid=(0.0, 0.75, 0.95))
+
+
+def test_alpha_grid_rejects_alpha_one_outside_model_domain():
+    with pytest.raises(ValueError, match="0 <= alpha < 1"):
+        AlphaSweepProtocol(alpha_grid=(0.0, 0.75, 1.0))
 
 
 def test_alpha_grid_requires_baseline_anchor():
     with pytest.raises(ValueError, match="0.75"):
-        AlphaSweepProtocol(alpha_grid=(0.0, 0.5, 1.0))
+        AlphaSweepProtocol(alpha_grid=(0.0, 0.5, 0.99))
 
 
 def test_alpha_sweep_requires_at_least_1000_bootstrap_draws():
@@ -65,7 +70,7 @@ def test_alpha_sweep_requires_at_least_1000_bootstrap_draws():
 def test_same_replication_preserves_exogenous_crn_across_alpha():
     baseline = first_refined_baseline_specification()
     p0 = replace(baseline.parameters, alpha=0.0)
-    p1 = replace(baseline.parameters, alpha=1.0)
+    p1 = replace(baseline.parameters, alpha=0.99)
     labels = ("R", "SW", "SF")
     plan0 = prepare_paired_replication(
         experiment_seed=ALPHA_SWEEP_EXPERIMENT_SEED,
