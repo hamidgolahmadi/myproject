@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-04
+Last updated: 2026-09-07
 
 ## Project identity
 
@@ -36,6 +36,12 @@ This verifies the complete refined core, paired seed/treatment machinery,
 D041 structural validation, market/CID/mechanism diagnostics, D042/D044 market
 evaluation calibration, D043 baseline, Phase-8 paired runner/smoke, and the
 complete D045 production/inference layer.
+
+The first D046 test attempt produced `687 passed, 1 failed`. The single failure
+was scientifically useful: the draft D046 grid included `alpha=1.0`, while the
+doctoral report and canonical `RefinedParameters` require `0 <= alpha < 1`.
+No D046 production had been submitted and no D046 outcomes had been inspected.
+The upper grid point has therefore been corrected pre-execution to `alpha=0.99`.
 
 ## Frozen structural design — D041
 
@@ -202,16 +208,21 @@ Canonical protocol/documentation:
     src/experiments/refined/alpha_sweep_protocol.py
     docs/D046_ALPHA_SWEEP_PROTOCOL.md
 
-Frozen design:
+Frozen design after the pre-execution domain correction:
 
     experiment seed = 2026090404
-    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 1.00)
+    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 0.99)
     paired replications per alpha = 300
     topology triplet = (R, SW, SF)
     total simulations = 7200
     bootstrap seed = 2026090405
     bootstrap draws = 5000
     confidence level = 95%
+
+The original draft endpoint `alpha=1.00` was rejected by the Iridis test gate
+because Eq. (baseline social-belief rule) and `RefinedParameters` require
+`0 <= alpha < 1`. It was replaced with `0.99` before any D046 execution or
+outcome inspection.
 
 Within replication, the same semantic shock/initial-state/graph seeds are used
 across the full alpha grid. Alpha does not enter the exogenous shock scale or
@@ -257,11 +268,12 @@ Slurm design:
     maximum 16 concurrent tasks
     1 CPU/task, 4 GB/task, 1 hour/task
 
-28 new tests were added after the verified 660 checkpoint.
+The D046 test layer now contains 29 tests beyond the verified 660 checkpoint,
+including an explicit regression test rejecting `alpha=1.0`.
 
 Expected next checkpoint:
 
-    688 passed
+    689 passed
 
 ## Report revision TODO — sigma_0 Appendix
 
@@ -272,7 +284,7 @@ a regularisation-sensitivity diagnostic, not a topology-ranking table.
 ## Immediate gate
 
 1. Pull latest `refined-model` on Iridis.
-2. Run all refined tests; expected `688 passed`.
+2. Run all refined tests; expected `689 passed`.
 3. Confirm working tree clean.
 4. Do NOT submit D046 until this gate is green.
 5. If green, create `results/refined/alpha_sweep` before `sbatch` so Slurm can open logs.
