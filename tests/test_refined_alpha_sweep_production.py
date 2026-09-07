@@ -54,7 +54,7 @@ def _calibration():
 def _protocol(n_replications=2):
     return AlphaSweepProtocol(
         experiment_seed=94201,
-        alpha_grid=(0.0, 0.75, 1.0),
+        alpha_grid=(0.0, 0.75, 0.99),
         n_replications=n_replications,
         bootstrap_seed=94202,
         n_bootstrap=1000,
