@@ -17,7 +17,7 @@ from .confirmatory_protocol import first_confirmatory_production_protocol
 
 ALPHA_SWEEP_EXPERIMENT_SEED = 2026090404
 ALPHA_SWEEP_BOOTSTRAP_SEED = 2026090405
-FROZEN_ALPHA_GRID = (0.0, 0.2, 0.4, 0.6, 0.75, 0.85, 0.95, 1.0)
+FROZEN_ALPHA_GRID = (0.0, 0.2, 0.4, 0.6, 0.75, 0.85, 0.95, 0.99)
 
 
 def _d045_outcomes() -> tuple[str, ...]:
@@ -66,16 +66,16 @@ class AlphaSweepProtocol:
             raise TypeError("alpha_grid must contain real scalars") from exc
         if len(alpha_grid) < 2:
             raise ValueError("alpha_grid must contain at least two values")
-        if any(not np.isfinite(value) or not 0.0 <= value <= 1.0 for value in alpha_grid):
-            raise ValueError("every alpha value must lie in [0,1]")
+        if any(not np.isfinite(value) or not 0.0 <= value < 1.0 for value in alpha_grid):
+            raise ValueError("every alpha value must satisfy 0 <= alpha < 1")
         if len(set(alpha_grid)) != len(alpha_grid):
             raise ValueError("alpha_grid values must be unique")
         if tuple(sorted(alpha_grid)) != alpha_grid:
             raise ValueError("alpha_grid must be strictly increasing")
         if alpha_grid[0] != 0.0:
             raise ValueError("D046 alpha_grid must include alpha=0 as its first endpoint")
-        if alpha_grid[-1] != 1.0:
-            raise ValueError("D046 alpha_grid must include alpha=1 as its final endpoint")
+        if alpha_grid[-1] != 0.99:
+            raise ValueError("D046 alpha_grid must include alpha=0.99 as its near-boundary endpoint")
         if 0.75 not in alpha_grid:
             raise ValueError("D046 alpha_grid must retain the D043 alpha=0.75 anchor")
         object.__setattr__(self, "alpha_grid", alpha_grid)
