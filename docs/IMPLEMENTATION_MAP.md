@@ -1,6 +1,6 @@
 # Refined Model Implementation Map
 
-Last updated: 2026-09-04
+Last updated: 2026-09-07
 
 Scientific source of truth: `report1_25_08_2026.pdf`. Legacy code is reference only.
 
@@ -165,7 +165,8 @@ and the production mechanism summaries:
     mean_aggregate_order_flow_variance
 
 The same runner now also supplies D046 via `alpha_override`, without changing
-any other frozen D043 parameter.
+any other frozen D043 parameter. The canonical `RefinedParameters` object
+continues to enforce the report-defined domain `0 <= alpha < 1`.
 
 Status: VERIFIED at the 660-test checkpoint.
 
@@ -265,10 +266,10 @@ Final D045 checkpoint:
     src/experiments/refined/alpha_sweep_protocol.py
     docs/D046_ALPHA_SWEEP_PROTOCOL.md
 
-Frozen exploratory design:
+Frozen exploratory design after the pre-execution domain correction:
 
     experiment seed = 2026090404
-    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 1.00)
+    alpha grid = (0.00, 0.20, 0.40, 0.60, 0.75, 0.85, 0.95, 0.99)
     paired replications per alpha = 300
     total simulations = 7200
     bootstrap seed = 2026090405
@@ -276,8 +277,10 @@ Frozen exploratory design:
     confidence = 95%
 
 D046 is OAT diagnostic/regime mapping, not a second confirmatory family.
-D043/D044 values remain fixed. Alpha zero and alpha one are explicit endpoints,
-and alpha 0.75 retains the D045 anchor.
+D043/D044 values remain fixed. Alpha zero is the exact negative-control endpoint,
+alpha 0.75 retains the D045 anchor, and alpha 0.99 is the near-boundary endpoint.
+The draft alpha=1.00 endpoint was removed before any D046 run because the report
+and `RefinedParameters` require `0 <= alpha < 1`.
 
 ## D046 matched-block analysis
 
@@ -344,18 +347,19 @@ No partition/account is guessed. Login-node execution remains guarded.
     tests/test_refined_alpha_sweep_production.py
     tests/test_refined_alpha_sweep_slurm.py
 
-28 new test cases are added beyond the verified 660 checkpoint.
+29 new test cases are now present beyond the verified 660 checkpoint, including
+an explicit guard that rejects alpha=1.0 from the D046 grid.
 
 Expected next checkpoint:
 
-    688 passed
+    689 passed
 
 ## Current gate
 
 1. Pull latest `refined-model`.
-2. Run all refined tests; expected `688 passed`.
+2. Run all refined tests; expected `689 passed`.
 3. Confirm clean working tree.
-4. Do not submit D046 until the 688-test gate is green.
+4. Do not submit D046 until the 689-test gate is green.
 5. Before `sbatch`, create `results/refined/alpha_sweep` so Slurm can open log files.
 6. Do not inspect partial alpha/topology curves; finalization requires all 2400 checkpoints.
 
