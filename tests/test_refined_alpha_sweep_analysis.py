@@ -10,7 +10,7 @@ from src.experiments.refined.confirmatory_runner import ConfirmatoryTreatmentRec
 def _protocol():
     return AlphaSweepProtocol(
         experiment_seed=94001,
-        alpha_grid=(0.0, 0.75, 1.0),
+        alpha_grid=(0.0, 0.75, 0.99),
         n_replications=2,
         bootstrap_seed=94002,
         n_bootstrap=1000,
@@ -83,17 +83,17 @@ def test_alpha_sweep_means_and_pairwise_signs_are_correct():
         (item.alpha, item.outcome, item.topology): item.estimate
         for item in result.topology_means
     }
-    assert means[(1.0, "return_volatility", "SW")] == pytest.approx(2.05)
-    assert means[(1.0, "return_volatility", "R")] == pytest.approx(3.05)
-    assert means[(1.0, "return_volatility", "SF")] == pytest.approx(4.05)
+    assert means[(0.99, "return_volatility", "SW")] == pytest.approx(2.04)
+    assert means[(0.99, "return_volatility", "R")] == pytest.approx(3.04)
+    assert means[(0.99, "return_volatility", "SF")] == pytest.approx(4.04)
 
     contrasts = {
         (item.alpha, item.outcome, item.topology_left, item.topology_right): item.estimate
         for item in result.pairwise_contrasts
     }
-    assert contrasts[(1.0, "return_volatility", "R", "SW")] == pytest.approx(1.0)
-    assert contrasts[(1.0, "return_volatility", "R", "SF")] == pytest.approx(-1.0)
-    assert contrasts[(1.0, "return_volatility", "SW", "SF")] == pytest.approx(-2.0)
+    assert contrasts[(0.99, "return_volatility", "R", "SW")] == pytest.approx(1.0)
+    assert contrasts[(0.99, "return_volatility", "R", "SF")] == pytest.approx(-1.0)
+    assert contrasts[(0.99, "return_volatility", "SW", "SF")] == pytest.approx(-2.0)
 
 
 def test_alpha_zero_exact_topology_null_is_verified():
@@ -119,11 +119,11 @@ def test_binary_and_signed_outcomes_do_not_get_relative_effects():
     result = analyse_alpha_sweep_records(_records(), protocol=_protocol())
     binary = next(
         item for item in result.pairwise_contrasts
-        if item.alpha == 1.0 and item.outcome == "threshold_exceeding"
+        if item.alpha == 0.99 and item.outcome == "threshold_exceeding"
     )
     signed = next(
         item for item in result.pairwise_contrasts
-        if item.alpha == 1.0 and item.outcome == "mean_pairwise_action_covariance"
+        if item.alpha == 0.99 and item.outcome == "mean_pairwise_action_covariance"
     )
     assert binary.relative_effect is None
     assert signed.relative_effect is None
