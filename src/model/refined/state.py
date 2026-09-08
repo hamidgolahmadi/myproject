@@ -72,17 +72,33 @@ def build_neighbourhoods(graph: np.ndarray) -> tuple[tuple[np.ndarray, ...], np.
 
 
 def validate_attention(attention: np.ndarray, graph: np.ndarray, *, atol: float = _FLOAT_TOL) -> np.ndarray:
-    """Validate effective attention ``W`` against graph support, Equation (38)."""
+    """Validate effective attention ``W`` against graph support, Equation (38).
+
+    Tiny *positive supported* weights are economically valid softmax
+    probabilities and must be preserved.  In particular, a high-selectivity
+    softmax can place several individually sub-tolerance weights on feasible
+    neighbours whose combined mass is larger than ``atol``.  Zeroing those
+    entries before the row-stochasticity check would manufacture a row-sum
+    failure.  Only numerically tiny negative values and numerically tiny
+    off-support values are cleaned to zero.
+    """
 
     graph_array = validate_graph_support(graph)
     attention_array = _as_matrix("attention", attention, graph_array.shape[0])
 
     if np.any(attention_array < -atol):
         raise ValueError("attention weights must be non-negative")
-    attention_array[np.abs(attention_array) <= atol] = 0.0
 
-    if np.any(np.abs(attention_array[graph_array == 0]) > atol):
+    # Permit round-off-sized negative noise, but never discard a positive
+    # graph-supported softmax probability merely because it is smaller than
+    # the validation tolerance.
+    tiny_negative = (attention_array < 0.0) & (attention_array >= -atol)
+    attention_array[tiny_negative] = 0.0
+
+    off_support = graph_array == 0
+    if np.any(np.abs(attention_array[off_support]) > atol):
         raise ValueError("attention assigns weight outside the feasible graph")
+    attention_array[off_support] = 0.0
 
     row_sums = attention_array.sum(axis=1)
     if not np.allclose(row_sums, 1.0, rtol=0.0, atol=atol):
