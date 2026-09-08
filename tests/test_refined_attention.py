@@ -137,6 +137,47 @@ def test_attention_is_row_stochastic_and_exactly_zero_off_graph_support():
     assert np.array_equal(checked[graph == 0], np.zeros(np.sum(graph == 0)))
 
 
+def test_validate_attention_preserves_tiny_positive_supported_probabilities():
+    graph = np.array(
+        [
+            [1, 1, 1],
+            [1, 0, 0],
+            [1, 0, 0],
+        ]
+    )
+    tiny = 6.0e-13
+    attention = np.array(
+        [
+            [1.0 - 2.0 * tiny, tiny, tiny],
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]
+    )
+
+    checked = validate_attention(attention, graph)
+
+    assert checked[0, 1] == tiny
+    assert checked[0, 2] == tiny
+    assert checked[0].sum() == pytest.approx(1.0, abs=1e-15)
+
+
+def test_high_selectivity_softmax_keeps_collectively_material_tiny_weights():
+    graph = np.ones((7, 7), dtype=int) - np.eye(7, dtype=int)
+    reputation = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+
+    attention, _ = update_attention(
+        reputation,
+        graph,
+        beta=10.7,
+        sigma_0=5e-4,
+    )
+
+    assert np.allclose(attention.sum(axis=1), 1.0, rtol=0.0, atol=1e-12)
+    assert np.array_equal(attention[graph == 0], np.zeros(np.sum(graph == 0)))
+    tiny_supported = attention[(graph == 1) & (attention > 0.0) & (attention < 1e-12)]
+    assert tiny_supported.size > 0
+
+
 def test_larger_beta_increases_weight_on_better_reputation_source():
     graph = example_graph()
     reputation = np.array([1.0, 3.0, 5.0])
