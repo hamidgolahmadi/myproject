@@ -103,14 +103,24 @@ def effective_number_of_sources(attention: np.ndarray, graph: np.ndarray) -> np.
 
 
 def realised_influence_shares(attention: np.ndarray, graph: np.ndarray) -> np.ndarray:
-    """Return source shares ``s^I_j,t = sum_i w_ij,t / N``, Eqs. (254)-(255)."""
+    """Return source shares ``s^I_j,t = sum_i w_ij,t / N``, Eqs. (254)-(255).
+
+    Positive shares are preserved even when individually smaller than the
+    validation tolerance.  High-selectivity softmax allocations can contain
+    many such tiny but mathematically valid probabilities; zeroing them after
+    normalisation would destroy the probability-simplex invariant when their
+    aggregate mass exceeds the tolerance.
+    """
 
     attention_array = _validated_attention(attention, graph)
     n_agents = attention_array.shape[0]
     shares = attention_array.sum(axis=0) / n_agents
+    if np.any(shares < -_FLOAT_ATOL):
+        raise RuntimeError("realised influence shares must be non-negative")
     if not np.isclose(float(shares.sum()), 1.0, rtol=0.0, atol=_FLOAT_ATOL):
         raise RuntimeError("realised influence shares do not sum to one")
-    shares[np.abs(shares) <= _FLOAT_ATOL] = 0.0
+    # Only remove negative round-off, never legitimate tiny positive mass.
+    shares[(shares < 0.0) & (shares >= -_FLOAT_ATOL)] = 0.0
     return shares
 
 
