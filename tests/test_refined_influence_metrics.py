@@ -79,6 +79,20 @@ def _shared_regular_attention() -> np.ndarray:
     )
 
 
+def _tiny_positive_attention_case() -> tuple[np.ndarray, np.ndarray]:
+    graph = np.ones((4, 4), dtype=np.int8) - np.eye(4, dtype=np.int8)
+    eps = 9e-13
+    attention = np.array(
+        [
+            [0.0, 1.0 - 2.0 * eps, eps, eps],
+            [1.0 - 2.0 * eps, 0.0, eps, eps],
+            [1.0 - eps, 0.0, 0.0, eps],
+            [1.0 - eps, 0.0, eps, 0.0],
+        ]
+    )
+    return graph, attention
+
+
 def _state(attention: np.ndarray) -> RefinedState:
     n = attention.shape[0]
     return RefinedState(
@@ -225,6 +239,29 @@ def test_uniform_fixed_out_degree_influence_shares_equal_indegree_share():
 def test_realised_influence_shares_sum_to_one():
     shares = realised_influence_shares(_uniform_attention(HUB_GRAPH), HUB_GRAPH)
     assert shares.sum() == pytest.approx(1.0)
+
+
+def test_realised_influence_shares_preserve_positive_subtolerance_mass():
+    graph, attention = _tiny_positive_attention_case()
+    shares = realised_influence_shares(attention, graph)
+
+    assert 0.0 < shares[2] < 1e-12
+    assert 0.0 < shares[3] < 1e-12
+    assert shares.sum() == pytest.approx(1.0, abs=1e-15)
+
+
+def test_realised_influence_path_accepts_aggregate_tiny_positive_share_mass():
+    graph, attention = _tiny_positive_attention_case()
+    initial = _uniform_attention(graph)
+    point = realised_influence_path(
+        _simulation((initial, attention)),
+        graph,
+        q=2,
+    ).points[0]
+
+    assert 0.0 < point.source_influence_shares[2] < 1e-12
+    assert 0.0 < point.source_influence_shares[3] < 1e-12
+    assert point.source_influence_shares.sum() == pytest.approx(1.0, abs=1e-15)
 
 
 def test_uniform_regular_influence_hhi_is_one_over_n():
