@@ -30,20 +30,9 @@ Iridis setup:
 
 Latest explicitly verified full refined test gate in chat:
 
-    729 passed in 35.52s
+    766 passed in 32.42s
     working tree clean
-
-This included the first D047 plotting layer. The final symlog plotting upgrade
-was subsequently exercised successfully and generated the intended ten thesis
-files, but its three added tests were not separately shown as a full pytest gate
-before D048 implementation began.
-
-D048 has now been implemented after that checkpoint. Expected next full refined
-test gate, if all new tests pass:
-
-    766 passed
-
-Do not call that count verified until Iridis reports it.
+    verified HEAD before D048 production = ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
 
 ## Frozen structural and market baseline
 
@@ -149,10 +138,10 @@ Execution:
 
 Scientific result:
 
-    beta <= about .5     weak-selectivity region
-    beta about 1--10     clear amplification transition
-    beta about 10--100   continued amplification
-    beta about 100--1000 near-plateau for several market gaps
+    beta <= about .5      weak-selectivity region
+    beta about 1--10      clear amplification transition
+    beta about 10--100    continued amplification
+    beta about 100--1000  near-plateau for several market gaps
 
 Topology already matters at beta=0 because alpha=.85 and uniform attention is
 still graph-specific. The strongest D047 mechanism is common exposure / overlap
@@ -164,7 +153,7 @@ D047 thesis plotting is closed. Preferred main-text x-axis is symlog, retaining
 beta=0 and resolving the logarithmic high-beta range. The default plotting
 command generates five main figures in PNG and vector PDF (10 files total).
 
-## D048 exploratory gamma_R sweep — FROZEN AND IMPLEMENTED, AWAITING TEST GATE
+## D048 exploratory gamma_R sweep — COMPLETE AND FINALIZED
 
 Canonical protocol:
 
@@ -184,21 +173,7 @@ Frozen design:
     bootstrap draws=5000
     confidence=.95
 
-Interpretation:
-
-- gamma_R=0 is an exact no-memory control, not a no-reputation control.
-- gamma_R=.9 retains the D043 persistence anchor.
-- gamma_R=.999 is a horizon-scale persistence stress point; gamma_R=1 remains
-  outside the maintained domain 0 <= gamma_R < 1.
-- monotonicity is not assumed. Hump shapes, plateaus, reversals, and high-gamma
-  attenuation are all admissible before outcome inspection.
-
-Post-D047 anchor choice:
-
-    alpha=.85 comes from D046
-    beta=5 is an interior D047 amplification point, not a saturation endpoint
-
-D048 preserves the full D045/D047 outcome set and adds two mechanism diagnostics:
+D048 preserves the full D045/D047 outcome set and adds:
 
     mean_raw_local_reputation_std
     mean_raw_local_reputation_std_over_sigma0
@@ -206,38 +181,55 @@ D048 preserves the full D045/D047 outcome set and adds two mechanism diagnostics
 These distinguish a direct persistence effect from an indirect change in the
 effective strength of the fixed sigma_0 regularisation floor.
 
-New implementation:
+Validation and execution provenance:
 
-    src/experiments/refined/reputation_diagnostics.py
-    src/experiments/refined/gamma_sweep_protocol.py
-    src/experiments/refined/gamma_sweep_analysis.py
-    src/experiments/refined/gamma_sweep_runner.py
-    src/experiments/refined/gamma_sweep_production.py
-    scripts/run_refined_gamma_sweep.py
-    scripts/run_refined_gamma_sweep.slurm
-    scripts/finalize_refined_gamma_sweep.py
-    scripts/finalize_refined_gamma_sweep.slurm
+    full refined test gate: 766 passed in 32.42s
+    smoke job: 1541812
+    smoke gamma_R={0,.9,.999}
+    smoke tasks: 3/3 COMPLETED 0:0
+    smoke checkpoints: 3
+    smoke non-empty stderr: 0
 
-Checkpoint path:
+    production array: 1542666
+    production tasks: 54/54 COMPLETED 0:0
+    production checkpoints: 2700/2700
+    production completion markers: 54
+    production non-empty stderr: 0
+    production commit across all 54 tasks:
+        ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
 
-    results/refined/gamma_sweep/checkpoints/gamma_XX/replication_XXXX.json
+    finalizer: 1544241
+    finalizer state: COMPLETED 0:0
+    finalizer host: ruby047
+    finalizer elapsed: 00:00:10
+    finalizer stderr: empty
+    finalizer commit:
+        ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
 
-Finalization requires all 9 x 300 = 2700 checkpoints. One bootstrap unit is the
-complete 9-gamma x 3-topology replication block. Independent gamma/topology
-resampling is prohibited.
+Final artifacts:
 
-## Immediate gate
+    results/refined/gamma_sweep/gamma_sweep_records.csv
+    results/refined/gamma_sweep/gamma_sweep_metadata.json
+    results/refined/gamma_sweep/gamma_sweep_analysis.json
+    results/refined/gamma_sweep/gamma_topology_means.csv
+    results/refined/gamma_sweep/gamma_topology_gaps.csv
+    results/refined/gamma_sweep/gamma_pairwise_contrasts.csv
 
-1. Pull latest `refined-model`.
-2. Run `python -m pytest -q tests/test_refined_*.py`.
-3. Expected count is 766 if the complete new layer passes; verify rather than
-   assuming.
-4. Confirm working tree clean.
-5. Do not submit full D048 production yet.
-6. First run a tiny compute-node smoke at gamma_R={0,.9,.999}.
-7. Only after that smoke passes, create a fresh production output directory and
-   submit the 54-task D048 array.
-8. Do not inspect partial D048 outcome curves.
+No D048 scientific result has yet been documented in this file. Interpretation
+must begin from the finalized artifacts only.
+
+## Immediate scientific task
+
+Extract and inspect finalized D048 outcomes in this order:
+
+    reputation dispersion / sigma_0 ratio
+    attention mobility / entropy / effective sources / HHI / overlap
+    action covariance / aggregate order-flow variance
+    mean absolute order flow / return volatility
+    Peak CID / threshold exceedance / mispricing
+
+D048 is exploratory OAT. Use matched-block 95% intervals and do not relabel
+pointwise evidence as a confirmatory family-wise test.
 
 ## Development status
 
@@ -252,7 +244,7 @@ resampling is prohibited.
     Phase 8b  D045 confirmatory production                   COMPLETE
     Phase 9a  D046 alpha sweep                               COMPLETE
     Phase 9b  D047 beta sweep                                COMPLETE
-    Phase 9c  D048 gamma_R sweep                             IMPLEMENTED / TEST PENDING
+    Phase 9c  D048 gamma_R sweep                             COMPLETE / RESULTS PENDING INTERPRETATION
     Phase 9d  Heterogeneity                                  PLANNED
     Phase 10  Endogenous G formation                         PLANNED
     Phase 11  Full Jacobian / Lyapunov                       PLANNED
