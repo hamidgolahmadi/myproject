@@ -1,20 +1,23 @@
-"""Reproducible figures for the completed exploratory D047 beta sweep.
+"""Reproducible thesis figures for the completed exploratory D047 beta sweep.
 
-The plotting layer is intentionally downstream of the frozen D047 analysis.  It
-reads only the final CSV/JSON artifacts and never recomputes simulation outcomes,
-bootstrap intervals, topology gaps, or any economic transition.
+This module is strictly downstream of the frozen D047 analysis.  It reads only
+final CSV/JSON artifacts and never recomputes simulation outcomes, bootstrap
+intervals, topology gaps, or any economic transition.
 
-Two x-axis representations are supported:
+Three x-axis representations are available:
 
 ``grid``
     The predeclared beta values are shown at equally spaced positions, including
-    beta=0.  This is the main full-design display because a literal linear axis
-    would compress all beta <= 10 near zero when beta_max=1000.
+    beta=0.  This is useful as an audit/full-design display.
 
 ``log``
     The actual positive beta values are shown on a logarithmic x axis.  beta=0
-    is omitted because log(0) is undefined.  This view is useful for resolving
-    the transition and high-selectivity regions.
+    is omitted because log(0) is undefined.
+
+``symlog``
+    The actual beta values are shown on a symmetric-log axis with a small linear
+    neighbourhood around zero.  This retains the exact beta=0 control while
+    resolving the 0.01--1000 transition range, and is the preferred thesis view.
 """
 
 from __future__ import annotations
@@ -36,21 +39,22 @@ TOPOLOGY_ORDER = ("R", "SW", "SF")
 TOPOLOGY_MARKERS = {"R": "o", "SW": "s", "SF": "^"}
 
 OUTCOME_LABELS = {
-    "return_volatility": "Return-volatility topology gap",
-    "mean_absolute_order_flow_per_agent": "Mean absolute order-flow topology gap",
-    "peak_cid": "Peak-CID topology gap",
-    "mean_aggregate_order_flow_variance": "Aggregate order-flow variance topology gap",
-    "mean_hub_influence_share": "Structural-hub influence topology gap",
-    "mean_attention_overlap": "Attention-overlap topology gap",
-    "mean_pairwise_action_covariance": "Pairwise action-covariance topology gap",
+    "return_volatility": "Return volatility",
+    "mean_absolute_order_flow_per_agent": "Mean absolute order flow",
+    "peak_cid": "Peak CID",
+    "mean_aggregate_order_flow_variance": "Aggregate order-flow variance",
+    "mean_hub_influence_share": "Structural-hub influence",
+    "mean_attention_overlap": "Attention overlap",
+    "mean_pairwise_action_covariance": "Pairwise action covariance",
 }
 
-MARKET_RELATIVE_GAP_OUTCOMES = (
+CORE_MARKET_RELATIVE_GAP_OUTCOMES = (
     "return_volatility",
     "mean_absolute_order_flow_per_agent",
     "peak_cid",
-    "mean_aggregate_order_flow_variance",
 )
+
+AGGREGATE_FLOW_VARIANCE_OUTCOME = "mean_aggregate_order_flow_variance"
 
 MECHANISM_RELATIVE_GAP_OUTCOMES = (
     "mean_hub_influence_share",
@@ -58,6 +62,11 @@ MECHANISM_RELATIVE_GAP_OUTCOMES = (
 )
 
 ACTION_COVARIANCE_OUTCOME = "mean_pairwise_action_covariance"
+
+DETAIL_RELATIVE_GAP_OUTCOMES = (
+    *CORE_MARKET_RELATIVE_GAP_OUTCOMES,
+    *MECHANISM_RELATIVE_GAP_OUTCOMES,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,9 +142,9 @@ def load_beta_sweep_plot_data(results_dir: str | Path) -> BetaSweepPlotData:
         "beta_topology_gaps.csv",
     )
 
+    expected_betas = set(beta_grid)
     observed_mean_betas = {float(row["beta"]) for row in means}
     observed_gap_betas = {float(row["beta"]) for row in gaps}
-    expected_betas = set(beta_grid)
     if observed_mean_betas != expected_betas or observed_gap_betas != expected_betas:
         raise ValueError("D047 plotting inputs do not cover the exact frozen beta grid")
 
@@ -170,29 +179,48 @@ def x_coordinates(
         if not indices:
             raise ValueError("log-beta display requires at least one strictly positive beta")
         return np.asarray([float(beta_grid[i]) for i in indices], dtype=float), indices
-    raise ValueError("mode must be 'grid' or 'log'")
+    if mode == "symlog":
+        indices = tuple(range(len(beta_grid)))
+        return np.asarray([float(beta) for beta in beta_grid], dtype=float), indices
+    raise ValueError("mode must be 'grid', 'log', or 'symlog'")
 
 
 def _beta_label(beta: float) -> str:
     return f"{beta:g}"
 
 
-def _configure_x_axis(ax, beta_grid: Sequence[float], *, mode: str) -> tuple[np.ndarray, tuple[int, ...]]:
+def _configure_x_axis(
+    ax,
+    beta_grid: Sequence[float],
+    *,
+    mode: str,
+) -> tuple[np.ndarray, tuple[int, ...]]:
     x, indices = x_coordinates(beta_grid, mode=mode)
     selected = [float(beta_grid[i]) for i in indices]
+
     if mode == "grid":
         ax.set_xticks(x)
         ax.set_xticklabels([_beta_label(beta) for beta in selected])
-        ax.set_xlabel(r"$\beta$ (predeclared grid; equally spaced display)")
-    else:
+        ax.set_xlabel(r"Reputational selectivity, $\beta$ (predeclared grid)")
+    elif mode == "log":
         ax.set_xscale("log")
         ax.set_xticks(x)
         ax.set_xticklabels([_beta_label(beta) for beta in selected])
-        ax.set_xlabel(r"$\beta$ (log scale; $\beta>0$)")
+        ax.set_xlabel(r"Reputational selectivity, $\beta$ (log scale; $\beta>0$)")
+    else:
+        positive = [beta for beta in selected if beta > 0.0]
+        linthresh = min(positive) if positive else 0.01
+        ax.set_xscale("symlog", base=10, linthresh=linthresh, linscale=1.0)
+        ax.set_xticks(x)
+        ax.set_xticklabels([_beta_label(beta) for beta in selected])
+        ax.set_xlabel(r"Reputational selectivity, $\beta$ (symlog scale)")
+
     return x, indices
 
 
-def _rows_for_outcome(rows: Iterable[dict[str, str]], outcome: str) -> tuple[dict[str, str], ...]:
+def _rows_for_outcome(
+    rows: Iterable[dict[str, str]], outcome: str
+) -> tuple[dict[str, str], ...]:
     selected = tuple(row for row in rows if row["outcome"] == outcome)
     if not selected:
         raise ValueError(f"D047 plotting outcome not found: {outcome}")
@@ -233,6 +261,29 @@ def _save_figure(
     return tuple(paths)
 
 
+def _relative_gap_series(
+    data: BetaSweepPlotData, outcome: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    rows = _ordered_by_beta(_rows_for_outcome(data.gaps, outcome), data.beta_grid)
+    try:
+        estimate = np.asarray([100.0 * float(row["relative_gap"]) for row in rows])
+        lower = np.asarray([100.0 * float(row["relative_gap_ci_lower"]) for row in rows])
+        upper = np.asarray([100.0 * float(row["relative_gap_ci_upper"]) for row in rows])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"outcome {outcome!r} does not have D047 relative-gap values") from exc
+    return estimate, lower, upper
+
+
+def _absolute_gap_series(
+    data: BetaSweepPlotData, outcome: str
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    rows = _ordered_by_beta(_rows_for_outcome(data.gaps, outcome), data.beta_grid)
+    estimate = np.asarray([float(row["absolute_gap"]) for row in rows])
+    lower = np.asarray([float(row["absolute_gap_ci_lower"]) for row in rows])
+    upper = np.asarray([float(row["absolute_gap_ci_upper"]) for row in rows])
+    return estimate, lower, upper
+
+
 def plot_peak_cid_topology_levels(
     data: BetaSweepPlotData,
     *,
@@ -241,7 +292,7 @@ def plot_peak_cid_topology_levels(
     formats: Sequence[str] = ("png", "pdf"),
     dpi: int = 300,
 ) -> tuple[Path, ...]:
-    """Plot Peak CID topology means with matched-block 95% intervals."""
+    """Plot Peak CID topology means with matched-block percentile intervals."""
 
     fig, ax = plt.subplots(figsize=(7.4, 4.8))
     x, indices = _configure_x_axis(ax, data.beta_grid, mode=mode)
@@ -266,7 +317,7 @@ def plot_peak_cid_topology_levels(
         )
 
     ax.set_ylabel("Peak CID")
-    ax.set_title("D047: Peak CID across reputational selectivity")
+    ax.set_title("Effect of reputational selectivity on peak CID")
     ax.legend(title="Topology")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
@@ -277,29 +328,6 @@ def plot_peak_cid_topology_levels(
         formats=formats,
         dpi=dpi,
     )
-
-
-def _relative_gap_series(
-    data: BetaSweepPlotData, outcome: str
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rows = _ordered_by_beta(_rows_for_outcome(data.gaps, outcome), data.beta_grid)
-    try:
-        estimate = np.asarray([100.0 * float(row["relative_gap"]) for row in rows])
-        lower = np.asarray([100.0 * float(row["relative_gap_ci_lower"]) for row in rows])
-        upper = np.asarray([100.0 * float(row["relative_gap_ci_upper"]) for row in rows])
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"outcome {outcome!r} does not have D047 relative-gap values") from exc
-    return estimate, lower, upper
-
-
-def _absolute_gap_series(
-    data: BetaSweepPlotData, outcome: str
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rows = _ordered_by_beta(_rows_for_outcome(data.gaps, outcome), data.beta_grid)
-    estimate = np.asarray([float(row["absolute_gap"]) for row in rows])
-    lower = np.asarray([float(row["absolute_gap_ci_lower"]) for row in rows])
-    upper = np.asarray([float(row["absolute_gap_ci_upper"]) for row in rows])
-    return estimate, lower, upper
 
 
 def plot_relative_gap_summary(
@@ -346,6 +374,8 @@ def plot_relative_gap_detail(
     data: BetaSweepPlotData,
     *,
     outcome: str,
+    title: str | None = None,
+    stem: str | None = None,
     output_dir: str | Path,
     mode: str,
     formats: Sequence[str] = ("png", "pdf"),
@@ -362,13 +392,35 @@ def plot_relative_gap_detail(
     yerr = np.vstack((estimate - lower, upper - estimate))
     ax.errorbar(x, estimate, yerr=yerr, marker="o", linewidth=1.6, capsize=2.5)
     ax.set_ylabel("Relative topology gap (%)")
-    ax.set_title(f"D047: {OUTCOME_LABELS[outcome]}")
+    ax.set_title(title or f"{OUTCOME_LABELS[outcome]} topology gap")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
     return _save_figure(
         fig,
         output_dir=Path(output_dir),
-        stem=f"d047_{outcome}_relative_gap_{mode}",
+        stem=f"{stem or ('d047_' + outcome + '_relative_gap')}_{mode}",
+        formats=formats,
+        dpi=dpi,
+    )
+
+
+def plot_aggregate_flow_variance_relative_gap(
+    data: BetaSweepPlotData,
+    *,
+    output_dir: str | Path,
+    mode: str,
+    formats: Sequence[str] = ("png", "pdf"),
+    dpi: int = 300,
+) -> tuple[Path, ...]:
+    """Plot aggregate-flow-variance topology differentiation separately with CI."""
+
+    return plot_relative_gap_detail(
+        data,
+        outcome=AGGREGATE_FLOW_VARIANCE_OUTCOME,
+        title="Topology gap in aggregate order-flow variance",
+        stem="d047_aggregate_flow_variance_relative_gap",
+        output_dir=output_dir,
+        mode=mode,
         formats=formats,
         dpi=dpi,
     )
@@ -393,7 +445,7 @@ def plot_action_covariance_absolute_gap(
     yerr = np.vstack((estimate - lower, upper - estimate))
     ax.errorbar(x, estimate, yerr=yerr, marker="o", linewidth=1.6, capsize=2.5)
     ax.set_ylabel("Absolute topology gap")
-    ax.set_title("D047: Pairwise action-covariance topology gap")
+    ax.set_title("Topology gap in pairwise action covariance")
     ax.grid(True, alpha=0.25)
     fig.tight_layout()
     return _save_figure(
@@ -409,15 +461,22 @@ def generate_beta_sweep_figures(
     *,
     results_dir: str | Path,
     output_dir: str | Path,
-    modes: Sequence[str] = ("grid", "log"),
+    modes: Sequence[str] = ("symlog",),
     formats: Sequence[str] = ("png", "pdf"),
     include_detail: bool = False,
     dpi: int = 300,
 ) -> tuple[Path, ...]:
-    """Generate the main D047 thesis figures from finalized artifacts."""
+    """Generate the frozen final D047 figure set from finalized artifacts."""
+
+    if not modes or len(set(modes)) != len(tuple(modes)):
+        raise ValueError("modes must contain unique plotting modes")
+    invalid_modes = set(modes).difference({"grid", "log", "symlog"})
+    if invalid_modes:
+        raise ValueError(f"unsupported plotting modes: {sorted(invalid_modes)}")
 
     data = load_beta_sweep_plot_data(results_dir)
     paths: list[Path] = []
+
     for mode in modes:
         paths.extend(
             plot_peak_cid_topology_levels(
@@ -431,9 +490,18 @@ def generate_beta_sweep_figures(
         paths.extend(
             plot_relative_gap_summary(
                 data,
-                outcomes=MARKET_RELATIVE_GAP_OUTCOMES,
-                title="D047: Market topology gaps across reputational selectivity",
-                stem="d047_market_relative_gap_summary",
+                outcomes=CORE_MARKET_RELATIVE_GAP_OUTCOMES,
+                title="Market topology differentiation",
+                stem="d047_market_core_relative_gap_summary",
+                output_dir=output_dir,
+                mode=mode,
+                formats=formats,
+                dpi=dpi,
+            )
+        )
+        paths.extend(
+            plot_aggregate_flow_variance_relative_gap(
+                data,
                 output_dir=output_dir,
                 mode=mode,
                 formats=formats,
@@ -444,7 +512,7 @@ def generate_beta_sweep_figures(
             plot_relative_gap_summary(
                 data,
                 outcomes=MECHANISM_RELATIVE_GAP_OUTCOMES,
-                title="D047: Mechanism topology gaps across reputational selectivity",
+                title="Mechanism topology differentiation",
                 stem="d047_mechanism_relative_gap_summary",
                 output_dir=output_dir,
                 mode=mode,
@@ -461,8 +529,9 @@ def generate_beta_sweep_figures(
                 dpi=dpi,
             )
         )
+
         if include_detail:
-            for outcome in (*MARKET_RELATIVE_GAP_OUTCOMES, *MECHANISM_RELATIVE_GAP_OUTCOMES):
+            for outcome in DETAIL_RELATIVE_GAP_OUTCOMES:
                 paths.extend(
                     plot_relative_gap_detail(
                         data,
@@ -473,4 +542,5 @@ def generate_beta_sweep_figures(
                         dpi=dpi,
                     )
                 )
+
     return tuple(paths)
