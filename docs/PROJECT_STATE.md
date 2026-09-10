@@ -41,7 +41,7 @@ before D048 implementation began.
 D048 has now been implemented after that checkpoint. Expected next full refined
 test gate, if all new tests pass:
 
-    765 passed
+    766 passed
 
 Do not call that count verified until Iridis reports it.
 
@@ -230,7 +230,7 @@ resampling is prohibited.
 
 1. Pull latest `refined-model`.
 2. Run `python -m pytest -q tests/test_refined_*.py`.
-3. Expected count is 765 if the complete new layer passes; verify rather than
+3. Expected count is 766 if the complete new layer passes; verify rather than
    assuming.
 4. Confirm working tree clean.
 5. Do not submit full D048 production yet.
