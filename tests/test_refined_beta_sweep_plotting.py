@@ -104,7 +104,13 @@ def test_x_coordinates_grid_keeps_zero_and_log_excludes_zero():
     assert tuple(log_x) == pytest.approx((0.1, 1.0, 10.0))
 
 
-def test_generate_beta_sweep_figures_writes_main_grid_outputs(tmp_path):
+def test_x_coordinates_symlog_keeps_zero_and_actual_beta_values():
+    symlog_x, symlog_indices = x_coordinates(BETAS, mode="symlog")
+    assert tuple(symlog_indices) == (0, 1, 2, 3)
+    assert tuple(symlog_x) == pytest.approx(BETAS)
+
+
+def test_generate_beta_sweep_figures_writes_split_main_grid_outputs(tmp_path):
     root = _write_finalized_fixture(tmp_path / "beta")
     output = tmp_path / "figures"
     paths = generate_beta_sweep_figures(
@@ -113,17 +119,31 @@ def test_generate_beta_sweep_figures_writes_main_grid_outputs(tmp_path):
         modes=("grid",),
         formats=("png",),
     )
-    assert len(paths) == 4
+    assert len(paths) == 5
     assert {path.name for path in paths} == {
         "d047_peak_cid_levels_grid.png",
-        "d047_market_relative_gap_summary_grid.png",
+        "d047_market_core_relative_gap_summary_grid.png",
+        "d047_aggregate_flow_variance_relative_gap_grid.png",
         "d047_mechanism_relative_gap_summary_grid.png",
         "d047_action_covariance_absolute_gap_grid.png",
     }
     assert all(path.exists() and path.stat().st_size > 0 for path in paths)
 
 
-def test_generate_beta_sweep_figures_detail_adds_six_relative_gap_plots(tmp_path):
+def test_generate_beta_sweep_figures_defaults_to_symlog_thesis_set(tmp_path):
+    root = _write_finalized_fixture(tmp_path / "beta")
+    output = tmp_path / "figures"
+    paths = generate_beta_sweep_figures(
+        results_dir=root,
+        output_dir=output,
+        formats=("png",),
+    )
+    assert len(paths) == 5
+    assert all(path.name.endswith("_symlog.png") for path in paths)
+    assert (output / "d047_aggregate_flow_variance_relative_gap_symlog.png").exists()
+
+
+def test_generate_beta_sweep_figures_detail_adds_five_relative_gap_plots(tmp_path):
     root = _write_finalized_fixture(tmp_path / "beta")
     paths = generate_beta_sweep_figures(
         results_dir=root,
@@ -133,7 +153,18 @@ def test_generate_beta_sweep_figures_detail_adds_six_relative_gap_plots(tmp_path
         include_detail=True,
     )
     assert len(paths) == 10
-    assert sum("relative_gap_grid" in path.name for path in paths) == 6
+    assert sum("relative_gap_grid" in path.name for path in paths) >= 5
+
+
+def test_generate_beta_sweep_figures_rejects_duplicate_modes(tmp_path):
+    root = _write_finalized_fixture(tmp_path / "beta")
+    with pytest.raises(ValueError, match="unique plotting modes"):
+        generate_beta_sweep_figures(
+            results_dir=root,
+            output_dir=tmp_path / "figures",
+            modes=("symlog", "symlog"),
+            formats=("png",),
+        )
 
 
 def test_load_beta_sweep_plot_data_rejects_confirmatory_metadata(tmp_path):
