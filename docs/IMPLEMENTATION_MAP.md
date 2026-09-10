@@ -126,7 +126,7 @@ stderr. Finalizer 1537380 completed on the same commit
 D047 plotting is closed. The preferred thesis display is symlog; the default
 plot command generates five main figure types in PNG and vector PDF.
 
-## D048 gamma_R sweep — IMPLEMENTED / TEST PENDING
+## D048 gamma_R sweep — COMPLETE AND FINALIZED
 
 Protocol:
 
@@ -169,38 +169,39 @@ Checkpoint path:
 
     results/refined/gamma_sweep/checkpoints/gamma_XX/replication_XXXX.json
 
-Production array design:
+Execution verification:
 
-    54 tasks = 9 gamma slices x 6 blocks
-    50 paired replications/task
-    max 16 concurrent
-    1 CPU/task, 4 GB/task, 1 hour/task
+    full refined tests = 766 passed
+    smoke job = 1541812; gamma_R={0,.9,.999}; 3/3 COMPLETED 0:0
+    production array = 1542666
+    production tasks = 54/54 COMPLETED 0:0
+    production checkpoints = 2700/2700
+    completion markers = 54
+    non-empty stderr = 0
+    production commit = ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
+    finalizer = 1544241 COMPLETED 0:0 on ruby047
+    finalizer stderr = empty
+    finalizer commit = ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
 
-Finalization requires all 2700 checkpoints. One bootstrap unit is the complete
-9-gamma x 3-topology replication block. D048 is exploratory OAT; no new
-Holm/FWER family is declared.
+Final artifacts:
 
-D048 test files:
+    gamma_sweep_records.csv
+    gamma_sweep_metadata.json
+    gamma_sweep_analysis.json
+    gamma_topology_means.csv
+    gamma_topology_gaps.csv
+    gamma_pairwise_contrasts.csv
 
-    tests/test_refined_gamma_sweep_protocol.py
-    tests/test_refined_reputation_diagnostics.py
-    tests/test_refined_gamma_sweep_runner.py
-    tests/test_refined_gamma_sweep_analysis.py
-    tests/test_refined_gamma_sweep_production.py
-    tests/test_refined_gamma_sweep_slurm.py
-
-There are 34 new D048 tests. Together with the three unshown final-plotting tests
-added after the last verified 729-test checkpoint, the expected next full gate
-is 766. This count is not verified until Iridis reports it.
+One bootstrap unit is the complete 9-gamma x 3-topology replication block.
+D048 remains exploratory OAT; no new Holm/FWER family is declared.
 
 ## Next gate
 
-1. Pull latest `refined-model`.
-2. Run all refined tests and confirm a clean working tree.
-3. Run a tiny compute-node smoke at gamma_R={0,.9,.999}.
-4. Submit the 54-task production array only after the smoke passes.
-5. Do not inspect partial D048 outcome curves.
-6. Finalize only after 2700/2700 checkpoints and clean one-commit provenance.
+Interpret finalized D048 artifacts only. First inspect the gamma-specific
+reputation-scale diagnostics, then attention concentration/mobility, action
+covariance and aggregate order flow, and finally market/CID outcomes. After D048
+is documented, move to Phase 9d heterogeneity; joint alpha-beta-gamma interaction
+experiments remain necessary before strong conditional claims.
 
 Formal stability remains separate: equilibrium X*, full Jacobian J*, `spr(J*)`,
 and Lyapunov analysis. The spectral radius of row-stochastic W is not the market
