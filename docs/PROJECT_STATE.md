@@ -34,6 +34,13 @@ Latest explicitly verified full refined test gate in chat:
     working tree clean
     verified HEAD before D048 production = ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
 
+D049 has been implemented after this checkpoint. Exactly 34 new D049 test cases
+have been added. Expected next full refined test count, if all additions pass:
+
+    800 passed
+
+Do not call 800 verified until Iridis reports it.
+
 ## Frozen structural and market baseline
 
 D041 topology design:
@@ -79,7 +86,7 @@ D042/D044 frozen market evaluation:
     configuration = 9200fcdd3fbfb60fe04d29e2978394b6575bd9538e3c23f62d8d04de5d862202
     scales        = 1e89574139dfe70e70742e98b1603b6d976fb85addce1eb9bbb21c04082ba476
 
-These remain immutable through D046--D048.
+These remain immutable through D049.
 
 ## D045 confirmatory fixed-topology experiment — COMPLETE
 
@@ -98,15 +105,10 @@ modest under the frozen baseline. Canonical results: `docs/D045_RESULTS.md`.
 
 ## D046 exploratory alpha sweep — COMPLETE
 
-Frozen design:
-
     alpha=(0,.2,.4,.6,.75,.85,.95,.99)
     300 paired replications per alpha
     7200 simulations
     bootstrap=5000 complete blocks
-
-Execution:
-
     array=1526697
     checkpoints=2400/2400
     finalizer=1527139
@@ -119,46 +121,35 @@ Canonical results: `docs/D046_RESULTS.md`.
 
 ## D047 exploratory beta sweep — COMPLETE
 
-Frozen design:
-
     alpha anchor=.85
     beta=(0,.01,.1,.5,1,2,5,10,100,1000)
     300 paired replications per beta
     9000 simulations
     bootstrap=5000 complete 10-beta x 3-topology blocks
-
-Execution:
-
     production array=1536715
-    60/60 tasks COMPLETED 0:0
     checkpoints=3000/3000
-    non-empty stderr=0
-    finalizer=1537380 COMPLETED 0:0
+    finalizer=1537380
     production/finalizer commit=6c94d6b92014185c4ed4799d7846b284b31f8a27
 
-Scientific result:
+Main result: beta does not activate topology from zero; topology is already
+present at beta=0 because alpha=.85 and G remains different. Stronger
+selectivity mainly amplifies common attention, action covariance, and aggregate
+order-flow variance, with several market gaps approaching a high-beta plateau.
+Threshold-exceeding is zero throughout D047. Canonical results:
+`docs/D047_RESULTS.md`.
 
-    beta <= about .5      weak-selectivity region
-    beta about 1--10      clear amplification transition
-    beta about 10--100    continued amplification
-    beta about 100--1000  near-plateau for several market gaps
+D047 thesis plotting is closed.
 
-Topology already matters at beta=0 because alpha=.85 and uniform attention is
-still graph-specific. The strongest D047 mechanism is common exposure / overlap
--> action covariance -> aggregate order-flow variance, not a monotone increase
-in structural-hub dominance. Threshold-exceeding is zero throughout D047.
-Canonical results: `docs/D047_RESULTS.md`.
+## D048 exploratory gamma_R sweep — COMPLETE, FINALIZED, INTERPRETED
 
-D047 thesis plotting is closed. Preferred main-text x-axis is symlog, retaining
-beta=0 and resolving the logarithmic high-beta range. The default plotting
-command generates five main figures in PNG and vector PDF (10 files total).
-
-## D048 exploratory gamma_R sweep — COMPLETE AND FINALIZED
-
-Canonical protocol:
+Canonical files:
 
     docs/D048_GAMMA_SWEEP_PROTOCOL.md
+    docs/D048_RESULTS.md
     src/experiments/refined/gamma_sweep_protocol.py
+    src/experiments/refined/gamma_sweep_analysis.py
+    src/experiments/refined/gamma_sweep_runner.py
+    src/experiments/refined/gamma_sweep_production.py
 
 Frozen design:
 
@@ -168,68 +159,120 @@ Frozen design:
     beta anchor=5.0
     gamma_R=(0,.5,.8,.9,.95,.98,.99,.995,.999)
     paired replications per gamma=300
-    matched blocks=2700
     simulations=8100
     bootstrap draws=5000
-    confidence=.95
 
-D048 preserves the full D045/D047 outcome set and adds:
+Execution:
 
-    mean_raw_local_reputation_std
-    mean_raw_local_reputation_std_over_sigma0
+    full refined test gate=766 passed in 32.42s
+    smoke job=1541812; 3/3 COMPLETED 0:0
+    production array=1542666; 54/54 COMPLETED 0:0
+    checkpoints=2700/2700
+    non-empty stderr=0
+    finalizer=1544241 COMPLETED 0:0 on ruby047
+    production/finalizer commit=ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
 
-These distinguish a direct persistence effect from an indirect change in the
-effective strength of the fixed sigma_0 regularisation floor.
+Scientific result:
 
-Validation and execution provenance:
+    gamma_R=0--.5      fast/noisy updating; high attention turnover
+    gamma_R=.8--.95    persistent ranking; growing topology amplification
+    gamma_R=.98--.995  strongest concentration/covariance differentiation
+    gamma_R=.999       regularisation-dominated attenuation/reversal
 
-    full refined test gate: 766 passed in 32.42s
-    smoke job: 1541812
-    smoke gamma_R={0,.9,.999}
-    smoke tasks: 3/3 COMPLETED 0:0
-    smoke checkpoints: 3
-    smoke non-empty stderr: 0
+The key mechanism is not a monotone change in hub share. Interior persistence
+reduces attention turnover and strengthens common exposure, pairwise action
+covariance, and aggregate-flow variance. Near gamma_R=.999, raw local reputation
+dispersion falls well below the fixed sigma_0 scale, effective standardised
+reputation differences shrink, and the propagation mechanism partially
+reverses. Return-volatility differentiation follows this pattern but remains
+small in level terms. Threshold-exceeding is zero for all topologies at every
+gamma_R.
 
-    production array: 1542666
-    production tasks: 54/54 COMPLETED 0:0
-    production checkpoints: 2700/2700
-    production completion markers: 54
-    production non-empty stderr: 0
-    production commit across all 54 tasks:
-        ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
+This interaction between persistence and the fixed reputation-standardisation
+floor motivates D049.
 
-    finalizer: 1544241
-    finalizer state: COMPLETED 0:0
-    finalizer host: ruby047
-    finalizer elapsed: 00:00:10
-    finalizer stderr: empty
-    finalizer commit:
-        ce3630faf86d7f55b3535d2a8b902d5c677a6f0c
+## D049 joint alpha-beta-gamma_R interaction experiment — FROZEN AND IMPLEMENTED, TEST PENDING
 
-Final artifacts:
+Canonical protocol:
 
-    results/refined/gamma_sweep/gamma_sweep_records.csv
-    results/refined/gamma_sweep/gamma_sweep_metadata.json
-    results/refined/gamma_sweep/gamma_sweep_analysis.json
-    results/refined/gamma_sweep/gamma_topology_means.csv
-    results/refined/gamma_sweep/gamma_topology_gaps.csv
-    results/refined/gamma_sweep/gamma_pairwise_contrasts.csv
+    docs/D049_JOINT_INTERACTION_PROTOCOL.md
+    src/experiments/refined/joint_interaction_protocol.py
 
-No D048 scientific result has yet been documented in this file. Interpretation
-must begin from the finalized artifacts only.
+Frozen reduced factorial:
 
-## Immediate scientific task
+    alpha=(.40,.85,.99)
+    beta=(0,1,5,100)
+    gamma_R=(0,.90,.99,.999)
 
-Extract and inspect finalized D048 outcomes in this order:
+Continuity/control cells:
 
-    reputation dispersion / sigma_0 ratio
-    attention mobility / entropy / effective sources / HHI / overlap
-    action covariance / aggregate order-flow variance
-    mean absolute order flow / return volatility
-    Peak CID / threshold exceedance / mispricing
+    C_ALPHA0 = (0,5,.90)
+    A_D043   = (.75,1,.90)
 
-D048 is exploratory OAT. Use matched-block 95% intervals and do not relabel
-pointwise evidence as a confirmatory family-wise test.
+Design:
+
+    48 factorial cells + 2 controls = 50 cells
+    experiment seed=2026091003
+    bootstrap seed=2026091004
+    paired replications per cell=300
+    topology triplet=(R,SW,SF)
+    checkpoints=15000
+    simulations=45000
+    bootstrap draws=5000 complete 50-cell x 3-topology blocks
+    sigma_0 fixed=.0005
+
+D049 is sequential exploratory interaction mapping because its factor levels
+were selected after D046--D048 outcomes. No new Holm/FWER family is declared.
+
+Primary signed interaction topology estimand:
+
+    D(alpha,beta,gamma_R;Y) = Y_SF - Y_SW
+
+The protocol freezes six interaction contrasts and three boundary-shift
+contrasts. The priority mechanism-to-market chain is:
+
+    mean_attention_overlap
+      -> mean_pairwise_action_covariance
+      -> mean_aggregate_order_flow_variance
+      -> mean_absolute_order_flow_per_agent
+      -> return_volatility
+      -> peak_cid
+
+Implementation:
+
+    src/experiments/refined/joint_interaction_protocol.py
+    src/experiments/refined/joint_interaction_analysis.py
+    src/experiments/refined/joint_interaction_runner.py
+    src/experiments/refined/joint_interaction_production.py
+    scripts/run_refined_joint_interaction.py
+    scripts/run_refined_joint_interaction.slurm
+    scripts/finalize_refined_joint_interaction.py
+    scripts/finalize_refined_joint_interaction.slurm
+
+The finalizer refuses partial designs and verifies:
+
+    cross-cell common random numbers
+    exact alpha=0 economic-path topology null
+
+before writing final artifacts.
+
+## Immediate gate
+
+1. Pull latest `refined-model`.
+2. Run `python -m pytest -q tests/test_refined_*.py`.
+3. Expected count is 800 if the full new layer passes; verify rather than assume.
+4. Confirm working tree clean.
+5. Do not submit D049 production yet.
+6. First run a compute-node smoke for cell indexes:
+
+       48  C_ALPHA0          (0,5,.90)
+       49  A_D043            (.75,1,.90)
+       26  interior          (.85,5,.99)
+       47  boundary          (.99,100,.999)
+
+7. Only after the smoke passes, create a fresh
+   `results/refined/joint_interaction` directory and submit the 300-task array.
+8. Do not inspect partial D049 outcome surfaces.
 
 ## Development status
 
@@ -244,8 +287,9 @@ pointwise evidence as a confirmatory family-wise test.
     Phase 8b  D045 confirmatory production                   COMPLETE
     Phase 9a  D046 alpha sweep                               COMPLETE
     Phase 9b  D047 beta sweep                                COMPLETE
-    Phase 9c  D048 gamma_R sweep                             COMPLETE / RESULTS PENDING INTERPRETATION
-    Phase 9d  Heterogeneity                                  PLANNED
+    Phase 9c  D048 gamma_R sweep                             COMPLETE
+    Phase 9d  D049 joint alpha-beta-gamma_R interactions     IMPLEMENTED / TEST PENDING
+    Phase 9e  Heterogeneity                                  PLANNED
     Phase 10  Endogenous G formation                         PLANNED
     Phase 11  Full Jacobian / Lyapunov                       PLANNED
     Phase 12  State-space / EKF / empirical work             PLANNED
