@@ -115,35 +115,47 @@ Peak CID rises in level with beta, but its cross-topology ordering is less robus
 than the order-flow mechanism metrics. At high beta, SW is generally below R/SF,
 while R and SF are not cleanly separated by their 95% matched-block intervals.
 
-## Figure plan
+## Frozen thesis figure plan
 
 Canonical plotting code:
 
     src/experiments/refined/beta_sweep_plotting.py
     scripts/plot_refined_beta_sweep.py
 
-The main figure set contains:
+The final main-text figure set is deliberately small:
 
-1. Peak CID topology levels with 95% intervals.
-2. Market relative-gap summary: return volatility, mean absolute order flow,
-   Peak CID, and aggregate order-flow variance.
-3. Mechanism relative-gap summary: structural-hub influence and attention overlap.
-4. Absolute topology gap in pairwise action covariance, with 95% interval.
+1. Peak CID topology levels with 95% matched-block intervals.
+2. Core market relative-gap summary: return volatility, mean absolute order flow,
+   and Peak CID.
+3. Aggregate order-flow-variance relative topology gap, separately, with 95% CI.
+4. Mechanism relative-gap summary: structural-hub influence and attention overlap.
+5. Absolute topology gap in pairwise action covariance, with 95% CI.
 
-Each is generated in two x-axis representations:
+Aggregate order-flow variance is separated from the other market gaps because its
+relative gap is much larger and otherwise visually compresses the remaining
+series.
 
-- `grid`: the full predeclared beta grid at equal visual spacing, including beta=0;
-- `log`: the actual positive beta values on a logarithmic x axis; beta=0 is omitted.
+Three x-axis representations remain available:
 
-The `grid` representation avoids visually collapsing beta<=10 against beta=1000,
-while retaining the exact beta=0 control. The log representation makes the
-transition and high-selectivity regions easier to inspect.
+- `symlog`: preferred thesis view; actual beta values, including beta=0, with a
+  small linear neighbourhood around zero and logarithmic spacing thereafter;
+- `grid`: audit/full-design view with all predeclared beta values at equal visual
+  spacing;
+- `log`: positive-beta-only logarithmic view for transition-region inspection.
 
-Generate the main PNG and vector-PDF figures with:
+The plotting titles are thesis-style and do not use the internal `D047:` prefix.
+Generated figure files retain `d047_` in their filenames for provenance.
+
+The default command now generates only the preferred symlog main-text set in PNG
+and vector PDF:
 
     python scripts/plot_refined_beta_sweep.py
 
-Generate the main figures plus one CI figure for every relative-gap outcome with:
+For audit/appendix views:
+
+    python scripts/plot_refined_beta_sweep.py --modes grid log symlog
+
+For additional single-metric CI figures:
 
     python scripts/plot_refined_beta_sweep.py --include-detail
 
@@ -153,3 +165,7 @@ By default figures are written inside:
 
 which keeps generated images outside version control while keeping the plotting
 code and scientific inputs reproducible.
+
+After the final plotting test gate and one visual sanity check, D047 plotting is
+closed. The next scientific task is Phase 9c: design and run the gamma_R sweep
+before moving to heterogeneity and later joint parameter interactions.
