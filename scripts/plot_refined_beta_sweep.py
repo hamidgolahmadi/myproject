@@ -37,11 +37,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--modes",
         nargs="+",
-        choices=("grid", "log"),
-        default=("grid", "log"),
+        choices=("grid", "log", "symlog"),
+        default=("symlog",),
         help=(
-            "grid = equally spaced predeclared beta values including beta=0; "
-            "log = actual positive beta values on a logarithmic x axis."
+            "symlog = preferred thesis view retaining beta=0 while resolving the full range; "
+            "grid = equally spaced predeclared beta values; "
+            "log = positive beta values only on a logarithmic axis."
         ),
     )
     parser.add_argument(
@@ -54,7 +55,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--include-detail",
         action="store_true",
-        help="Also create one CI figure per relative-gap outcome.",
+        help="Also create CI plots for the core market and mechanism relative gaps.",
     )
     parser.add_argument(
         "--dpi",
